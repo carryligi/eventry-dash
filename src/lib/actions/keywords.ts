@@ -74,3 +74,17 @@ export async function updateKeywordName(id: string, internalName: string) {
 
   revalidatePath('/dashboard/keywords')
 }
+
+export async function removeAllKeywords() {
+  const profile = await getCurrentUser()
+  const supabase = await createServerClient()
+  const { error } = await supabase
+    .from('keywords')
+    .delete()
+    .eq('user_id', profile.id)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/dashboard/keywords')
+  revalidatePath('/dashboard/settings')
+  revalidatePath('/dashboard')
+}
