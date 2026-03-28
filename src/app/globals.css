@@ -46,9 +46,40 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Eventry design tokens as Tailwind colors */
+  --color-ev-root: var(--bg-root);
+  --color-ev-primary: var(--bg-primary);
+  --color-ev-secondary: var(--bg-secondary);
+  --color-ev-tertiary: var(--bg-tertiary);
+  --color-ev-hover: var(--bg-hover);
+  --color-ev-active: var(--bg-active);
+
+  --color-ev-border-subtle: var(--border-subtle);
+  --color-ev-border-default: var(--border-default);
+  --color-ev-border-strong: var(--border-strong);
+
+  --color-ev-text-primary: var(--text-primary);
+  --color-ev-text-secondary: var(--text-secondary);
+  --color-ev-text-tertiary: var(--text-tertiary);
+  --color-ev-text-accent: var(--text-accent);
+
+  --color-ev-accent-start: var(--accent-start);
+  --color-ev-accent-end: var(--accent-end);
+  --color-ev-accent-glow: var(--accent-glow);
+
+  --color-ev-success: var(--success);
+  --color-ev-warning: var(--warning);
+  --color-ev-error: var(--error);
+  --color-ev-info: var(--info);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Eventry Design System — Chrome/Silver Metallic Dark Theme
+   ═══════════════════════════════════════════════════════════════ */
+
 :root {
+  /* shadcn/ui overrides */
   --background: #06060a;
   --foreground: #e8e8ec;
   --card: #0f0f18;
@@ -81,6 +112,36 @@
   --sidebar-accent-foreground: #e8e8ec;
   --sidebar-border: rgba(192, 192, 192, 0.10);
   --sidebar-ring: #c0c0c0;
+
+  /* Eventry background scale */
+  --bg-root: #06060a;
+  --bg-primary: #0a0a12;
+  --bg-secondary: #0f0f18;
+  --bg-tertiary: #141420;
+  --bg-hover: rgba(192, 192, 192, 0.04);
+  --bg-active: rgba(192, 192, 192, 0.08);
+
+  /* Eventry border scale */
+  --border-subtle: rgba(192, 192, 192, 0.06);
+  --border-default: rgba(192, 192, 192, 0.10);
+  --border-strong: rgba(192, 192, 192, 0.16);
+
+  /* Eventry text scale */
+  --text-primary: #e8e8ec;
+  --text-secondary: #9ca3af;
+  --text-tertiary: #6b7280;
+  --text-accent: #c0c0c0;
+
+  /* Chrome/Silver Metallic accent */
+  --accent-start: #8a8a8a;
+  --accent-end: #d4d4d4;
+  --accent-glow: rgba(192, 192, 192, 0.12);
+
+  /* Semantic colors */
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --info: #7f8fa6;
 }
 
 .dark {
@@ -118,38 +179,6 @@
 }
 
 @layer base {
-  :root {
-    /* Background */
-    --bg-root: #06060a;
-    --bg-primary: #0a0a12;
-    --bg-secondary: #0f0f18;
-    --bg-tertiary: #141420;
-    --bg-hover: rgba(192, 192, 192, 0.04);
-    --bg-active: rgba(192, 192, 192, 0.08);
-
-    /* Borders */
-    --border-subtle: rgba(192, 192, 192, 0.06);
-    --border-default: rgba(192, 192, 192, 0.10);
-    --border-strong: rgba(192, 192, 192, 0.16);
-
-    /* Text */
-    --text-primary: #e8e8ec;
-    --text-secondary: #9ca3af;
-    --text-tertiary: #6b7280;
-    --text-accent: #c0c0c0;
-
-    /* Accent (Chrome/Silver Metallic) */
-    --accent-start: #8a8a8a;
-    --accent-end: #d4d4d4;
-    --accent-glow: rgba(192, 192, 192, 0.12);
-
-    /* Semantic */
-    --success: #4ade80;
-    --warning: #fbbf24;
-    --error: #f87171;
-    --info: #7f8fa6;
-  }
-
   * {
     @apply border-border outline-ring/50;
   }
@@ -162,5 +191,67 @@
 
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
+  }
+
+  /* Custom scrollbar for the metallic theme */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(192, 192, 192, 0.15);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(192, 192, 192, 0.25);
+  }
+}
+
+@layer utilities {
+  /* Chrome/Silver metallic gradient text */
+  .text-gradient-chrome {
+    background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Metallic shimmer border */
+  .border-gradient-chrome {
+    border-image: linear-gradient(135deg, var(--accent-start), var(--accent-end)) 1;
+  }
+
+  /* Subtle glow effect for cards/panels */
+  .glow-chrome {
+    box-shadow: 0 0 20px var(--accent-glow), 0 0 40px rgba(192, 192, 192, 0.04);
+  }
+
+  /* Glass morphism panel */
+  .glass-panel {
+    background: rgba(10, 10, 18, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-subtle);
+  }
+
+  /* Noise texture overlay for premium feel */
+  .noise-overlay {
+    position: relative;
+  }
+
+  .noise-overlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    border-radius: inherit;
+    z-index: 0;
   }
 }

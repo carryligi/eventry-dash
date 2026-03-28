@@ -8,7 +8,7 @@ import {
   Tag,
   Zap,
   Bell,
-  Settings,
+  Settings2,
   Shield,
   LogOut,
   MoreHorizontal,
@@ -36,7 +36,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Tag,
   Zap,
   Bell,
-  Settings,
+  Settings2,
 }
 
 function getDiscordAvatarUrl(profile: Profile): string | null {
@@ -361,7 +361,7 @@ export function Sidebar({ profile }: SidebarProps) {
               className="cursor-pointer gap-2"
               onSelect={() => router.push(ROUTES.settings)}
             >
-              <Settings className="size-4" />
+              <Settings2 className="size-4" />
               Settings
             </DropdownMenuItem>
 
