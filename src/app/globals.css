@@ -82,9 +82,9 @@
   /* shadcn/ui overrides */
   --background: #06060a;
   --foreground: #e8e8ec;
-  --card: #0f0f18;
+  --card: rgba(15, 15, 24, 0.6);
   --card-foreground: #e8e8ec;
-  --popover: #0f0f18;
+  --popover: rgba(15, 15, 24, 0.85);
   --popover-foreground: #e8e8ec;
   --primary: #c0c0c0;
   --primary-foreground: #06060a;
@@ -142,14 +142,28 @@
   --warning: #fbbf24;
   --error: #f87171;
   --info: #7f8fa6;
+
+  /* Crystal Noir Glass Design System */
+  --glass-bg: rgba(15, 15, 24, 0.6);
+  --glass-bg-hover: rgba(15, 15, 24, 0.75);
+  --glass-bg-elevated: rgba(20, 20, 32, 0.7);
+  --glass-border: rgba(192, 192, 192, 0.08);
+  --glass-border-hover: rgba(192, 192, 192, 0.15);
+  --glass-border-focus: rgba(192, 192, 192, 0.25);
+  --glass-blur: 16px;
+  --glass-blur-heavy: 24px;
+  --glass-glow: 0 0 15px rgba(192, 192, 192, 0.06);
+  --glass-glow-hover: 0 0 20px rgba(192, 192, 192, 0.1);
+  --glass-glow-focus: 0 0 25px rgba(192, 192, 192, 0.15), 0 0 4px rgba(192, 192, 192, 0.1);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .dark {
   --background: #06060a;
   --foreground: #e8e8ec;
-  --card: #0f0f18;
+  --card: rgba(15, 15, 24, 0.6);
   --card-foreground: #e8e8ec;
-  --popover: #0f0f18;
+  --popover: rgba(15, 15, 24, 0.85);
   --popover-foreground: #e8e8ec;
   --primary: #c0c0c0;
   --primary-foreground: #06060a;
@@ -233,11 +247,62 @@
     box-shadow: 0 0 20px var(--accent-glow), 0 0 40px rgba(192, 192, 192, 0.04);
   }
 
-  /* Glass morphism panel */
+  /* Crystal Noir Glass panels */
   .glass-panel {
-    background: rgba(10, 10, 18, 0.6);
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-glow), var(--glass-inset);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .glass-panel:hover {
+    border-color: var(--glass-border-hover);
+    box-shadow: var(--glass-glow-hover), var(--glass-inset);
+  }
+
+  .glass-elevated {
+    background: var(--glass-bg-elevated);
+    backdrop-filter: blur(var(--glass-blur-heavy));
+    -webkit-backdrop-filter: blur(var(--glass-blur-heavy));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-glow), var(--glass-inset), 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+
+  .glass-input {
+    background: rgba(10, 10, 18, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--glass-border);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+  }
+
+  .glass-input:focus {
+    border-color: var(--glass-border-focus);
+    box-shadow: var(--glass-glow-focus), inset 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .glass-button {
+    background: rgba(192, 192, 192, 0.06);
     backdrop-filter: blur(12px);
-    border: 1px solid var(--border-subtle);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(192, 192, 192, 0.1);
+    box-shadow: var(--glass-inset);
+    transition: all 0.2s ease;
+  }
+
+  .glass-button:hover {
+    background: rgba(192, 192, 192, 0.1);
+    border-color: rgba(192, 192, 192, 0.18);
+    box-shadow: var(--glass-glow-hover), var(--glass-inset);
+    transform: translateY(-1px);
+  }
+
+  .glass-button:active {
+    transform: translateY(0);
+    background: rgba(192, 192, 192, 0.12);
   }
 
   /* Noise texture overlay for premium feel */
