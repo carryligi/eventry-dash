@@ -10,7 +10,6 @@ export async function GET(request: Request) {
   if (code) {
     const cookieStore = await cookies()
 
-    // Create a fresh Supabase client that can set cookies on the response
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -25,8 +24,7 @@ export async function GET(request: Request) {
                 cookieStore.set(name, value, options)
               )
             } catch {
-              // The `setAll` method was called from a Server Component.
-              // This can be ignored if you have middleware refreshing sessions.
+              // Ignored in Server Component context — middleware handles session refresh
             }
           },
         },
@@ -38,21 +36,21 @@ export async function GET(request: Request) {
     if (!error && data.session) {
       const meta = data.session.user.user_metadata
 
-      // Upsert profile from Discord metadata
-      try {
-        await supabase.from('profiles').upsert({
+      const [profileResult] = await Promise.all([
+        supabase.from('profiles').upsert({
           id: meta.provider_id,
           discord_username: meta.full_name || meta.name || 'Unknown',
           discord_avatar: meta.avatar_url || null,
-        }, { onConflict: 'id' })
-
-        // Initialize default pinger settings if first login
-        await supabase.from('pinger_settings').upsert(
+        }, { onConflict: 'id' }),
+        supabase.from('pinger_settings').upsert(
           { user_id: meta.provider_id, is_active: false, cooldown_minutes: 0 },
           { onConflict: 'user_id', ignoreDuplicates: true }
-        )
-      } catch (e) {
-        console.error('Profile upsert error:', e)
+        ),
+      ])
+
+      if (profileResult.error) {
+        console.error('Profile upsert failed:', profileResult.error)
+        return NextResponse.redirect(`${origin}/?error=profile_setup_failed`)
       }
 
       const forwardedHost = request.headers.get('x-forwarded-host')
@@ -68,6 +66,5 @@ export async function GET(request: Request) {
     }
   }
 
-  // Auth error — redirect to home with error
   return NextResponse.redirect(`${origin}/?error=auth_failed`)
 }
