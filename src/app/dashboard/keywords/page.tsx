@@ -1,23 +1,23 @@
-import { getCurrentUser } from '@/lib/auth'
+import { getUserId } from '@/lib/auth'
 import { createServerClient } from '@/lib/supabase/server'
 import { TopBar } from '@/components/dashboard/top-bar'
 import { KeywordTable } from '@/components/dashboard/keyword-table'
 import { AddKeywordDialog } from '@/components/dashboard/add-keyword-dialog'
 
 export default async function KeywordsPage() {
-  const profile = await getCurrentUser()
+  const userId = await getUserId()
   const supabase = await createServerClient()
 
   const [{ data: keywords }, { data: disabledKws }] = await Promise.all([
     supabase
       .from('keywords')
       .select('*')
-      .eq('user_id', profile.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false }),
     supabase
       .from('autostart_disabled_keywords')
       .select('keyword')
-      .eq('user_id', profile.id),
+      .eq('user_id', userId),
   ])
 
   const disabledKeywordsList = (disabledKws ?? []).map(

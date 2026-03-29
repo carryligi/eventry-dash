@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/lib/auth'
+import { getUserId } from '@/lib/auth'
 import { createServerClient } from '@/lib/supabase/server'
 import { TopBar } from '@/components/dashboard/top-bar'
 import { SilentlyConfig } from '@/components/dashboard/silently-config'
@@ -7,13 +7,13 @@ import { ScheduleConfig } from '@/components/dashboard/schedule-config'
 import { KeywordAutostartList } from '@/components/dashboard/keyword-autostart-list'
 
 export default async function AutostartPage() {
-  const profile = await getCurrentUser()
+  const userId = await getUserId()
   const supabase = await createServerClient()
 
   const [{ data: silentlySettings }, { data: keywords }, { data: disabledKws }] = await Promise.all([
-    supabase.from('silently_settings').select('*').eq('user_id', profile.id).single(),
-    supabase.from('keywords').select('*').eq('user_id', profile.id).order('keyword'),
-    supabase.from('autostart_disabled_keywords').select('keyword').eq('user_id', profile.id),
+    supabase.from('silently_settings').select('*').eq('user_id', userId).single(),
+    supabase.from('keywords').select('*').eq('user_id', userId).order('keyword'),
+    supabase.from('autostart_disabled_keywords').select('keyword').eq('user_id', userId),
   ])
 
   const disabledKeywordsList = (disabledKws ?? []).map((d: { keyword: string }) => d.keyword)

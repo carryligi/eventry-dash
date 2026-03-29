@@ -1,4 +1,5 @@
-import { requireAdmin } from '@/lib/auth'
+import { createServerClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import { TopBar } from '@/components/dashboard/top-bar'
 import { AdminNav } from '@/components/admin/admin-nav'
 
@@ -7,7 +8,18 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  await requireAdmin()
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) redirect('/')
+
+  const { data } = await supabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', user.user_metadata.provider_id)
+    .single()
+
+  if (!data?.is_admin) redirect('/dashboard')
 
   return (
     <>

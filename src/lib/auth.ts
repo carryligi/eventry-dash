@@ -2,6 +2,13 @@ import { createServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import type { Profile } from '@/types'
 
+export async function getUserId(): Promise<string> {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/')
+  return user.user_metadata.provider_id
+}
+
 export async function getCurrentUser(): Promise<Profile> {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()

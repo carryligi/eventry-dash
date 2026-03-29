@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/lib/auth'
+import { getUserId } from '@/lib/auth'
 import { createServerClient } from '@/lib/supabase/server'
 import { StatCards } from '@/components/dashboard/stat-cards'
 import { QuickSettings } from '@/components/dashboard/quick-settings'
@@ -6,7 +6,7 @@ import { RecentActivity } from '@/components/dashboard/recent-activity'
 import { TopBar } from '@/components/dashboard/top-bar'
 
 export default async function DashboardPage() {
-  const profile = await getCurrentUser()
+  const userId = await getUserId()
   const supabase = await createServerClient()
 
   const [
@@ -17,14 +17,14 @@ export default async function DashboardPage() {
     { count: todayMatches },
     { data: recentLogs },
   ] = await Promise.all([
-    supabase.from('keywords').select('id').eq('user_id', profile.id),
-    supabase.from('pinger_settings').select('*').eq('user_id', profile.id).single(),
-    supabase.from('silently_settings').select('*').eq('user_id', profile.id).single(),
-    supabase.from('notification_log').select('*', { count: 'exact', head: true }).eq('user_id', profile.id),
+    supabase.from('keywords').select('id').eq('user_id', userId),
+    supabase.from('pinger_settings').select('*').eq('user_id', userId).single(),
+    supabase.from('silently_settings').select('*').eq('user_id', userId).single(),
+    supabase.from('notification_log').select('*', { count: 'exact', head: true }).eq('user_id', userId),
     supabase.from('notification_log').select('*', { count: 'exact', head: true })
-      .eq('user_id', profile.id)
+      .eq('user_id', userId)
       .gte('created_at', new Date().toISOString().split('T')[0]),
-    supabase.from('notification_log').select('*').eq('user_id', profile.id)
+    supabase.from('notification_log').select('*').eq('user_id', userId)
       .order('created_at', { ascending: false }).limit(10),
   ])
 

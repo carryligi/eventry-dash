@@ -1,5 +1,5 @@
 import { createServerClient } from '@/lib/supabase/server'
-import { requireAdmin } from '@/lib/auth'
+import { getUserId } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -59,7 +59,7 @@ export default async function AdminUserDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id: userId } = await params
-  const currentAdmin = await requireAdmin()
+  const currentAdminId = await getUserId()
   const supabase = await createServerClient()
 
   // Parallel data fetching
@@ -119,7 +119,7 @@ export default async function AdminUserDetailPage({
   const typedDisabled = (disabledKeywords ?? []) as AutostartDisabledKeyword[]
   const typedLogs = (recentLogs ?? []) as NotificationLog[]
 
-  const isSelf = currentAdmin.id === userId
+  const isSelf = currentAdminId === userId
 
   return (
     <div className="p-6 space-y-6">
