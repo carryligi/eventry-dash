@@ -2,6 +2,7 @@
 
 import { ArrowRight } from 'lucide-react'
 import { Reveal } from '@/components/shared/reveal'
+import { createClient } from '@/lib/supabase/client'
 
 function DiscordIcon({ className }: { className?: string }) {
   return (
@@ -19,10 +20,14 @@ function DiscordIcon({ className }: { className?: string }) {
 }
 
 export function CTASection() {
-  const handleLogin = () => {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const loginUrl = `${supabaseUrl}/auth/v1/authorize?provider=discord&redirect_to=${encodeURIComponent(window.location.origin + '/auth/callback')}`
-    window.location.href = loginUrl
+  const handleLogin = async () => {
+    const supabase = createClient()
+    await supabase.auth.signInWithOAuth({
+      provider: 'discord',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    })
   }
 
   return (
