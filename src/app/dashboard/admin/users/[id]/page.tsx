@@ -21,7 +21,6 @@ import {
   Tag,
   Clock,
   MessageSquare,
-  Calendar,
 } from 'lucide-react'
 import type {
   Profile,

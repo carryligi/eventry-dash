@@ -5,6 +5,7 @@ import { Logo } from '@/components/shared/logo'
 import { DiscordIcon } from '@/components/shared/discord-icon'
 import { loginWithDiscord } from '@/lib/auth-client'
 import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
@@ -29,7 +30,7 @@ export function Navbar() {
       }}
     >
       <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-6">
-        <a href="/" className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-2.5">
           <Logo size={28} />
           <span
             className="text-[15px] font-semibold tracking-[-0.01em]"
@@ -37,7 +38,7 @@ export function Navbar() {
           >
             Eventry
           </span>
-        </a>
+        </Link>
 
         <button
           onClick={loginWithDiscord}

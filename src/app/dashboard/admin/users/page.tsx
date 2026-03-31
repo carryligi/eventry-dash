@@ -8,7 +8,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { UserSearch } from '@/components/admin/user-search'
 import { Shield, Zap, Bell, ShoppingCart } from 'lucide-react'
 

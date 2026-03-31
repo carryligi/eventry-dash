@@ -9,7 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Shield, Crown } from 'lucide-react'
+import { Crown } from 'lucide-react'
 import { GrantAdminForm } from '@/components/admin/grant-admin-form'
 import { RevokeAdminButton } from '@/components/admin/revoke-admin-button'
 import type { Profile } from '@/types'

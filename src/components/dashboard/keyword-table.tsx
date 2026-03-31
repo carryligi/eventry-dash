@@ -240,7 +240,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
     })
   }
 
-  const SortIcon = ({ field }: { field: SortField }) => {
+  const renderSortIcon = (field: SortField) => {
     if (sortField !== field)
       return <ArrowUpDown className="size-3 opacity-40" />
     return sortDir === 'asc' ? (
@@ -328,7 +328,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                   style={{ color: 'var(--text-secondary)' }}
                 >
                   Keyword
-                  <SortIcon field="keyword" />
+                  {renderSortIcon("keyword")}
                 </button>
               </TableHead>
               <TableHead>
@@ -338,7 +338,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                   style={{ color: 'var(--text-secondary)' }}
                 >
                   Name
-                  <SortIcon field="internal_name" />
+                  {renderSortIcon("internal_name")}
                 </button>
               </TableHead>
               <TableHead>
@@ -361,7 +361,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                   style={{ color: 'var(--text-secondary)' }}
                 >
                   Added
-                  <SortIcon field="created_at" />
+                  {renderSortIcon("created_at")}
                 </button>
               </TableHead>
             </TableRow>

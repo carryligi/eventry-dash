@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useOptimistic } from 'react'
+import { useTransition, useOptimistic } from 'react'
 import { Tag } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
