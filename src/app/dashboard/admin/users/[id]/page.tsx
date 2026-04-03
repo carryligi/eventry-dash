@@ -70,6 +70,9 @@ export default async function AdminUserDetailPage({
     { data: silentlySettings },
     { data: disabledKeywords },
     { data: recentLogs },
+    { count: totalMatches },
+    { count: todayMatches },
+    { data: silentlyStats },
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -106,6 +109,20 @@ export default async function AdminUserDetailPage({
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(20),
+    supabase
+      .from('notification_log')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId),
+    supabase
+      .from('notification_log')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', new Date().toISOString().split('T')[0]),
+    supabase
+      .from('notification_log')
+      .select('silently_triggered, silently_success')
+      .eq('user_id', userId)
+      .eq('silently_triggered', true),
   ])
 
   if (!profile) notFound()
@@ -120,6 +137,14 @@ export default async function AdminUserDetailPage({
 
   const isSelf = currentAdminId === userId
 
+  const successRate = silentlyStats?.length
+    ? Math.round(
+        (silentlyStats.filter((s: { silently_triggered: boolean; silently_success: boolean }) => s.silently_success).length /
+          silentlyStats.length) *
+          100
+      )
+    : 0
+
   return (
     <div className="p-6 space-y-6">
       {/* Back Link */}
@@ -133,18 +158,12 @@ export default async function AdminUserDetailPage({
       </Link>
 
       {/* User Header Card */}
-      <div
-        className="relative rounded-xl overflow-hidden"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
+      <div className="glass-card overflow-hidden">
         <div
           className="absolute top-0 left-0 right-0 h-px"
           style={{
             background:
-              'linear-gradient(90deg, transparent 0%, rgba(192,192,192,0.08) 30%, rgba(192,192,192,0.08) 70%, transparent 100%)',
+              'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
           }}
         />
         <div className="p-5">
@@ -203,22 +222,38 @@ export default async function AdminUserDetailPage({
         </div>
       </div>
 
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="glass-card p-4">
+          <span className="text-xs font-medium uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Keywords</span>
+          <p className="text-2xl font-semibold tabular-nums mt-1" style={{ color: 'var(--text-primary)' }}>{typedKeywords.length}</p>
+        </div>
+        <div className="glass-card p-4">
+          <span className="text-xs font-medium uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Total Matches</span>
+          <p className="text-2xl font-semibold tabular-nums mt-1" style={{ color: 'var(--text-primary)' }}>{totalMatches ?? 0}</p>
+        </div>
+        <div className="glass-card p-4">
+          <span className="text-xs font-medium uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Today</span>
+          <p className="text-2xl font-semibold tabular-nums mt-1" style={{ color: 'var(--text-primary)' }}>{todayMatches ?? 0}</p>
+        </div>
+        <div className="glass-card p-4">
+          <span className="text-xs font-medium uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Success Rate</span>
+          <p className="text-2xl font-semibold tabular-nums mt-1" style={{ color: successRate > 80 ? 'var(--success)' : successRate > 50 ? 'var(--warning)' : 'var(--text-primary)' }}>
+            {silentlyStats && silentlyStats.length > 0 ? `${successRate}%` : '--'}
+          </p>
+        </div>
+      </div>
+
       {/* Grid: Pinger + Pushover + Silently */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Pinger Settings */}
-        <div
-          className="relative rounded-xl overflow-hidden"
-          style={{
-            backgroundColor: 'var(--bg-secondary)',
-            border: '1px solid var(--border-subtle)',
-          }}
-        >
+        <div className="glass-card overflow-hidden">
           <div
             className="absolute top-0 left-0 right-0 h-px"
             style={{
               background: typedPinger?.is_active
                 ? 'linear-gradient(90deg, transparent 0%, var(--success) 30%, var(--success) 70%, transparent 100%)'
-                : 'linear-gradient(90deg, transparent 0%, rgba(192,192,192,0.08) 30%, rgba(192,192,192,0.08) 70%, transparent 100%)',
+                : 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
             }}
           />
           <div
@@ -270,19 +305,13 @@ export default async function AdminUserDetailPage({
         </div>
 
         {/* Pushover Settings */}
-        <div
-          className="relative rounded-xl overflow-hidden"
-          style={{
-            backgroundColor: 'var(--bg-secondary)',
-            border: '1px solid var(--border-subtle)',
-          }}
-        >
+        <div className="glass-card overflow-hidden">
           <div
             className="absolute top-0 left-0 right-0 h-px"
             style={{
               background: typedPushover
                 ? 'linear-gradient(90deg, transparent 0%, var(--success) 30%, var(--success) 70%, transparent 100%)'
-                : 'linear-gradient(90deg, transparent 0%, rgba(192,192,192,0.08) 30%, rgba(192,192,192,0.08) 70%, transparent 100%)',
+                : 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
             }}
           />
           <div
@@ -348,19 +377,13 @@ export default async function AdminUserDetailPage({
         </div>
 
         {/* Silently / Autostart Settings */}
-        <div
-          className="relative rounded-xl overflow-hidden"
-          style={{
-            backgroundColor: 'var(--bg-secondary)',
-            border: '1px solid var(--border-subtle)',
-          }}
-        >
+        <div className="glass-card overflow-hidden">
           <div
             className="absolute top-0 left-0 right-0 h-px"
             style={{
               background: typedSilently?.is_active
                 ? 'linear-gradient(90deg, transparent 0%, var(--success) 30%, var(--success) 70%, transparent 100%)'
-                : 'linear-gradient(90deg, transparent 0%, rgba(192,192,192,0.08) 30%, rgba(192,192,192,0.08) 70%, transparent 100%)',
+                : 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
             }}
           />
           <div
@@ -474,18 +497,12 @@ export default async function AdminUserDetailPage({
       </div>
 
       {/* Keywords Table */}
-      <div
-        className="relative rounded-xl overflow-hidden"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
+      <div className="glass-card overflow-hidden">
         <div
           className="absolute top-0 left-0 right-0 h-px"
           style={{
             background:
-              'linear-gradient(90deg, transparent 0%, rgba(192,192,192,0.08) 30%, rgba(192,192,192,0.08) 70%, transparent 100%)',
+              'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
           }}
         />
         <div
@@ -554,7 +571,7 @@ export default async function AdminUserDetailPage({
               {typedKeywords.map((kw) => (
                 <TableRow
                   key={kw.id}
-                  className="border-b"
+                  className="glass-table-row border-b"
                   style={{ borderColor: 'var(--border-subtle)' }}
                 >
                   <TableCell>
@@ -606,18 +623,12 @@ export default async function AdminUserDetailPage({
       </div>
 
       {/* Recent Notifications */}
-      <div
-        className="relative rounded-xl overflow-hidden"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
+      <div className="glass-card overflow-hidden">
         <div
           className="absolute top-0 left-0 right-0 h-px"
           style={{
             background:
-              'linear-gradient(90deg, transparent 0%, rgba(192,192,192,0.08) 30%, rgba(192,192,192,0.08) 70%, transparent 100%)',
+              'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
           }}
         />
         <div
@@ -686,7 +697,7 @@ export default async function AdminUserDetailPage({
               {typedLogs.map((log) => (
                 <TableRow
                   key={log.id}
-                  className="border-b"
+                  className="glass-table-row border-b"
                   style={{ borderColor: 'var(--border-subtle)' }}
                 >
                   <TableCell>

@@ -30,7 +30,6 @@ import { NAV_ITEMS, ROUTES } from '@/lib/constants'
 import type { Profile } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 
-// Map icon names to components
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard,
   Tag,
@@ -49,7 +48,7 @@ function UserAvatar({ profile }: { profile: Profile }) {
   const initial = profile.discord_username?.[0]?.toUpperCase() ?? '?'
 
   return (
-    <div className="relative size-8 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-[var(--border-default)] transition-all duration-200 hover:ring-[var(--border-strong)] hover:shadow-[0_0_8px_rgba(192,192,192,0.08)]">
+    <div className="relative size-8 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-white/10 transition-all duration-200 hover:ring-white/20 hover:shadow-[0_0_12px_rgba(200,200,208,0.08)]">
       {avatarUrl ? (
         <Image
           src={avatarUrl}
@@ -96,51 +95,33 @@ export function Sidebar({ profile }: SidebarProps) {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside
-        className="hidden md:flex flex-col items-center w-14 h-screen flex-shrink-0 relative z-20"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          borderRight: '1px solid var(--border-subtle)',
-        }}
-      >
-        {/* Metallic sheen line on the right edge */}
-        <div
-          className="absolute right-0 top-0 w-px h-full pointer-events-none"
-          style={{
-            background:
-              'linear-gradient(180deg, transparent 0%, rgba(192,192,192,0.06) 20%, rgba(192,192,192,0.03) 80%, transparent 100%)',
-          }}
-        />
-
+      <aside className="hidden md:flex flex-col items-center w-14 h-screen flex-shrink-0 relative z-20 glass-sidebar shine-right">
         {/* Logo */}
-        <div className="flex items-center justify-center h-14 w-full flex-shrink-0">
+        <div className="flex items-center justify-center h-16 w-full flex-shrink-0">
           <Link href={ROUTES.dashboard} className="relative group">
-            <Image
-              src="/logo.png"
-              alt="Eventry"
-              width={28}
-              height={28}
-              className="transition-transform duration-300 group-hover:scale-110"
-              priority
-            />
-            {/* Subtle glow on hover */}
-            <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-              style={{ boxShadow: '0 0 12px rgba(192,192,192,0.15)' }}
-            />
+            <div className="relative size-9 rounded-full overflow-hidden transition-all duration-300 group-hover:scale-110 group-hover:shadow-[0_0_20px_rgba(200,200,208,0.15)]">
+              <Image
+                src="/logo.png"
+                alt="Eventry"
+                width={36}
+                height={36}
+                className="size-full object-cover"
+                priority
+              />
+            </div>
           </Link>
         </div>
 
         {/* Divider */}
         <div
-          className="w-7 h-px flex-shrink-0"
+          className="w-7 h-px flex-shrink-0 mx-auto"
           style={{
-            background:
-              'linear-gradient(90deg, transparent, var(--border-default), transparent)',
+            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)',
           }}
         />
 
         {/* Navigation Icons */}
-        <nav className="flex flex-col items-center gap-1 mt-3 flex-1">
+        <nav className="flex flex-col items-center gap-1.5 mt-4 flex-1">
           <TooltipProvider>
             {NAV_ITEMS.map((item) => {
               const Icon = iconMap[item.icon]
@@ -155,12 +136,8 @@ export function Sidebar({ profile }: SidebarProps) {
                         href={item.href}
                         className="flex items-center justify-center size-9 rounded-lg transition-all duration-200 relative group"
                         style={{
-                          backgroundColor: active
-                            ? 'var(--bg-active)'
-                            : 'transparent',
-                          color: active
-                            ? 'var(--text-primary)'
-                            : 'var(--text-tertiary)',
+                          backgroundColor: active ? 'rgba(255,255,255,0.08)' : 'transparent',
+                          color: active ? 'var(--text-primary)' : 'var(--text-tertiary)',
                         }}
                       />
                     }
@@ -168,27 +145,23 @@ export function Sidebar({ profile }: SidebarProps) {
                     {/* Active indicator bar */}
                     {active && (
                       <div
-                        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-[5px] w-[2px] h-4 rounded-full"
+                        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-[5px] w-[2px] h-5 rounded-full"
                         style={{
-                          background:
-                            'linear-gradient(180deg, var(--accent-start), var(--accent-end))',
+                          background: 'linear-gradient(180deg, var(--accent-start), var(--accent-end))',
+                          boxShadow: '0 0 8px rgba(200,200,208,0.3)',
                         }}
                       />
                     )}
                     <Icon
                       className={`size-[18px] transition-all duration-200 ${
-                        active
-                          ? ''
-                          : 'group-hover:text-[var(--text-secondary)]'
+                        active ? '' : 'group-hover:text-[var(--text-secondary)]'
                       }`}
                     />
                     {/* Hover glow */}
                     {!active && (
                       <div
                         className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
-                        style={{
-                          backgroundColor: 'var(--bg-hover)',
-                        }}
+                        style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}
                       />
                     )}
                   </TooltipTrigger>
@@ -202,7 +175,7 @@ export function Sidebar({ profile }: SidebarProps) {
         </nav>
 
         {/* Bottom Section */}
-        <div className="flex flex-col items-center gap-1 pb-3">
+        <div className="flex flex-col items-center gap-1.5 pb-4">
           {/* Admin Icon */}
           {profile.is_admin && (
             <TooltipProvider>
@@ -213,36 +186,30 @@ export function Sidebar({ profile }: SidebarProps) {
                       href={ROUTES.admin}
                       className="flex items-center justify-center size-9 rounded-lg transition-all duration-200 relative group"
                       style={{
-                        backgroundColor: isActive(ROUTES.admin)
-                          ? 'var(--bg-active)'
-                          : 'transparent',
-                        color: isActive(ROUTES.admin)
-                          ? 'var(--text-primary)'
-                          : 'var(--text-tertiary)',
+                        backgroundColor: isActive(ROUTES.admin) ? 'rgba(255,255,255,0.08)' : 'transparent',
+                        color: isActive(ROUTES.admin) ? 'var(--text-primary)' : 'var(--text-tertiary)',
                       }}
                     />
                   }
                 >
                   {isActive(ROUTES.admin) && (
                     <div
-                      className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-[5px] w-[2px] h-4 rounded-full"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-[5px] w-[2px] h-5 rounded-full"
                       style={{
-                        background:
-                          'linear-gradient(180deg, var(--accent-start), var(--accent-end))',
+                        background: 'linear-gradient(180deg, var(--accent-start), var(--accent-end))',
+                        boxShadow: '0 0 8px rgba(200,200,208,0.3)',
                       }}
                     />
                   )}
                   <Shield
                     className={`size-[18px] transition-all duration-200 ${
-                      isActive(ROUTES.admin)
-                        ? ''
-                        : 'group-hover:text-[var(--text-secondary)]'
+                      isActive(ROUTES.admin) ? '' : 'group-hover:text-[var(--text-secondary)]'
                     }`}
                   />
                   {!isActive(ROUTES.admin) && (
                     <div
                       className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
-                      style={{ backgroundColor: 'var(--bg-hover)' }}
+                      style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}
                     />
                   )}
                 </TooltipTrigger>
@@ -257,8 +224,7 @@ export function Sidebar({ profile }: SidebarProps) {
           <div
             className="w-7 h-px my-1"
             style={{
-              background:
-                'linear-gradient(90deg, transparent, var(--border-default), transparent)',
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)',
             }}
           />
 
@@ -269,10 +235,7 @@ export function Sidebar({ profile }: SidebarProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent side="right" sideOffset={12} align="end">
               <div className="px-2 py-1.5">
-                <p
-                  className="text-sm font-medium truncate max-w-[160px]"
-                  style={{ color: 'var(--text-primary)' }}
-                >
+                <p className="text-sm font-medium truncate max-w-[160px]" style={{ color: 'var(--text-primary)' }}>
                   {profile.discord_username}
                 </p>
                 {profile.is_admin && (
@@ -282,10 +245,7 @@ export function Sidebar({ profile }: SidebarProps) {
                 )}
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="cursor-pointer gap-2"
-                onSelect={handleLogout}
-              >
+              <DropdownMenuItem className="cursor-pointer gap-2" onSelect={handleLogout}>
                 <LogOut className="size-4" />
                 Logout
               </DropdownMenuItem>
@@ -296,22 +256,9 @@ export function Sidebar({ profile }: SidebarProps) {
 
       {/* Mobile Bottom Navigation */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around h-14"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          borderTop: '1px solid var(--border-subtle)',
-          backdropFilter: 'blur(12px)',
-        }}
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around h-14 glass-sidebar shine-top"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
       >
-        {/* Metallic sheen line on top edge */}
-        <div
-          className="absolute top-0 left-0 right-0 h-px pointer-events-none"
-          style={{
-            background:
-              'linear-gradient(90deg, transparent 0%, rgba(192,192,192,0.06) 30%, rgba(192,192,192,0.06) 70%, transparent 100%)',
-          }}
-        />
-
         {NAV_ITEMS.slice(0, 4).map((item) => {
           const Icon = iconMap[item.icon]
           if (!Icon) return null
@@ -330,8 +277,8 @@ export function Sidebar({ profile }: SidebarProps) {
                 <div
                   className="absolute top-0 left-1/2 -translate-x-1/2 h-[2px] w-6 rounded-full"
                   style={{
-                    background:
-                      'linear-gradient(90deg, var(--accent-start), var(--accent-end))',
+                    background: 'linear-gradient(90deg, var(--accent-start), var(--accent-end))',
+                    boxShadow: '0 0 8px rgba(200,200,208,0.2)',
                   }}
                 />
               )}
@@ -341,47 +288,27 @@ export function Sidebar({ profile }: SidebarProps) {
           )
         })}
 
-        {/* More dropdown for remaining items */}
+        {/* More dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger className="flex flex-col items-center justify-center h-full px-3 cursor-pointer outline-none">
-            <MoreHorizontal
-              className="size-5"
-              style={{ color: 'var(--text-tertiary)' }}
-            />
-            <span
-              className="text-[10px] mt-0.5 font-medium"
-              style={{ color: 'var(--text-tertiary)' }}
-            >
+            <MoreHorizontal className="size-5" style={{ color: 'var(--text-tertiary)' }} />
+            <span className="text-[10px] mt-0.5 font-medium" style={{ color: 'var(--text-tertiary)' }}>
               More
             </span>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" sideOffset={8} align="end">
-            {/* Settings */}
-            <DropdownMenuItem
-              className="cursor-pointer gap-2"
-              onSelect={() => router.push(ROUTES.settings)}
-            >
+            <DropdownMenuItem className="cursor-pointer gap-2" onSelect={() => router.push(ROUTES.settings)}>
               <Settings2 className="size-4" />
               Settings
             </DropdownMenuItem>
-
-            {/* Admin */}
             {profile.is_admin && (
-              <DropdownMenuItem
-                className="cursor-pointer gap-2"
-                onSelect={() => router.push(ROUTES.admin)}
-              >
+              <DropdownMenuItem className="cursor-pointer gap-2" onSelect={() => router.push(ROUTES.admin)}>
                 <Shield className="size-4" />
                 Admin
               </DropdownMenuItem>
             )}
-
             <DropdownMenuSeparator />
-
-            <DropdownMenuItem
-              className="cursor-pointer gap-2"
-              onSelect={handleLogout}
-            >
+            <DropdownMenuItem className="cursor-pointer gap-2" onSelect={handleLogout}>
               <LogOut className="size-4" />
               Logout
             </DropdownMenuItem>

@@ -54,7 +54,7 @@ export function HowItWorks() {
         <div className="grid gap-12 sm:grid-cols-3 sm:gap-8">
           {steps.map((step, i) => (
             <Reveal key={step.number} delay={i * 0.15}>
-              <div className="relative">
+              <div className="glass-card relative rounded-lg p-6">
                 {/* Step number */}
                 <span
                   className="mb-4 block font-mono text-xs font-medium"

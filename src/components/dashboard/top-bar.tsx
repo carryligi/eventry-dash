@@ -1,5 +1,3 @@
-import { Badge } from '@/components/ui/badge'
-
 interface TopBarProps {
   title: string
   pingerActive?: boolean
@@ -12,70 +10,49 @@ export function TopBar({ title, pingerActive, silentlyActive }: TopBarProps) {
       className="flex items-center justify-between px-6 py-4 border-b relative"
       style={{ borderColor: 'var(--border-subtle)' }}
     >
-      {/* Subtle bottom edge sheen */}
       <div
         className="absolute bottom-0 left-0 right-0 h-px pointer-events-none"
         style={{
-          background:
-            'linear-gradient(90deg, transparent 0%, rgba(192,192,192,0.04) 30%, rgba(192,192,192,0.04) 70%, transparent 100%)',
+          background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 30%, rgba(255,255,255,0.04) 70%, transparent 100%)',
         }}
       />
 
-      <h1
-        className="text-xl font-semibold tracking-tight"
-        style={{ color: 'var(--text-primary)' }}
-      >
+      <h1 className="text-xl font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
         {title}
       </h1>
 
       <div className="flex items-center gap-2">
         {pingerActive !== undefined && (
-          <Badge
-            variant={pingerActive ? 'default' : 'secondary'}
-            className="text-xs"
+          <div
+            className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium"
+            style={{
+              background: pingerActive ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${pingerActive ? 'rgba(74,222,128,0.18)' : 'rgba(255,255,255,0.06)'}`,
+              color: pingerActive ? 'var(--success)' : 'var(--text-tertiary)',
+            }}
           >
-            {pingerActive ? (
-              <>
-                <span
-                  className="inline-block size-1.5 rounded-full mr-1"
-                  style={{ backgroundColor: 'var(--success)' }}
-                />
-                Pinger Active
-              </>
-            ) : (
-              <>
-                <span
-                  className="inline-block size-1.5 rounded-full mr-1"
-                  style={{ backgroundColor: 'var(--text-tertiary)' }}
-                />
-                Pinger Off
-              </>
-            )}
-          </Badge>
+            <span
+              className="inline-block size-1.5 rounded-full mr-1.5"
+              style={{ backgroundColor: pingerActive ? 'var(--success)' : 'var(--text-tertiary)' }}
+            />
+            Pinger {pingerActive ? 'Active' : 'Off'}
+          </div>
         )}
         {silentlyActive !== undefined && (
-          <Badge
-            variant={silentlyActive ? 'default' : 'secondary'}
-            className="text-xs"
+          <div
+            className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium"
+            style={{
+              background: silentlyActive ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${silentlyActive ? 'rgba(74,222,128,0.18)' : 'rgba(255,255,255,0.06)'}`,
+              color: silentlyActive ? 'var(--success)' : 'var(--text-tertiary)',
+            }}
           >
-            {silentlyActive ? (
-              <>
-                <span
-                  className="inline-block size-1.5 rounded-full mr-1"
-                  style={{ backgroundColor: 'var(--success)' }}
-                />
-                Silently Active
-              </>
-            ) : (
-              <>
-                <span
-                  className="inline-block size-1.5 rounded-full mr-1"
-                  style={{ backgroundColor: 'var(--text-tertiary)' }}
-                />
-                Silently Off
-              </>
-            )}
-          </Badge>
+            <span
+              className="inline-block size-1.5 rounded-full mr-1.5"
+              style={{ backgroundColor: silentlyActive ? 'var(--success)' : 'var(--text-tertiary)' }}
+            />
+            Silently {silentlyActive ? 'Active' : 'Off'}
+          </div>
         )}
       </div>
     </div>

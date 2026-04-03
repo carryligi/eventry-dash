@@ -52,55 +52,35 @@ export function QuickSettings({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       {/* Pinger Quick Card */}
-      <div
-        className="group relative rounded-xl overflow-hidden transition-all duration-300"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
-        {/* Top accent line */}
+      <div className="glass-card group relative overflow-hidden">
         <div
           className="absolute top-0 left-0 right-0 h-px"
           style={{
             background: optimisticPinger
               ? 'linear-gradient(90deg, transparent, var(--success), transparent)'
-              : 'linear-gradient(90deg, transparent, rgba(192,192,192,0.08), transparent)',
+              : 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)',
           }}
         />
 
         <div className="relative p-4">
-          {/* Header row */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div
                 className="flex items-center justify-center size-8 rounded-lg transition-colors duration-300"
                 style={{
-                  backgroundColor: optimisticPinger
-                    ? 'rgba(74,222,128,0.08)'
-                    : 'var(--bg-tertiary)',
+                  backgroundColor: optimisticPinger ? 'rgba(74,222,128,0.08)' : 'var(--bg-tertiary)',
                 }}
               >
                 <Zap
                   className="size-4 transition-colors duration-300"
-                  style={{
-                    color: optimisticPinger
-                      ? 'var(--success)'
-                      : 'var(--text-tertiary)',
-                  }}
+                  style={{ color: optimisticPinger ? 'var(--success)' : 'var(--text-tertiary)' }}
                 />
               </div>
               <div>
-                <h3
-                  className="text-sm font-medium"
-                  style={{ color: 'var(--text-primary)' }}
-                >
+                <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                   Pinger
                 </h3>
-                <p
-                  className="text-xs"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                   Event notifications
                 </p>
               </div>
@@ -113,20 +93,13 @@ export function QuickSettings({
             />
           </div>
 
-          {/* Details row */}
           <div
             className="flex items-center gap-4 pt-3"
             style={{ borderTop: '1px solid var(--border-subtle)' }}
           >
             <div className="flex items-center gap-1.5">
-              <Timer
-                className="size-3"
-                style={{ color: 'var(--text-tertiary)' }}
-              />
-              <span
-                className="text-xs tabular-nums"
-                style={{ color: 'var(--text-secondary)' }}
-              >
+              <Timer className="size-3" style={{ color: 'var(--text-tertiary)' }} />
+              <span className="text-xs tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                 {pingerSettings?.cooldown_minutes ?? 0}m cooldown
               </span>
             </div>
@@ -136,58 +109,38 @@ export function QuickSettings({
 
       {/* Silently / Autostart Quick Card */}
       <div
-        className="group relative rounded-xl overflow-hidden transition-all duration-300"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-subtle)',
-          opacity: silentlySettings ? 1 : 0.5,
-        }}
+        className="glass-card group relative overflow-hidden"
+        style={{ opacity: silentlySettings ? 1 : 0.5 }}
       >
-        {/* Top accent line */}
         <div
           className="absolute top-0 left-0 right-0 h-px"
           style={{
             background: optimisticSilently
               ? 'linear-gradient(90deg, transparent, var(--success), transparent)'
-              : 'linear-gradient(90deg, transparent, rgba(192,192,192,0.08), transparent)',
+              : 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)',
           }}
         />
 
         <div className="relative p-4">
-          {/* Header row */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div
                 className="flex items-center justify-center size-8 rounded-lg transition-colors duration-300"
                 style={{
-                  backgroundColor: optimisticSilently
-                    ? 'rgba(74,222,128,0.08)'
-                    : 'var(--bg-tertiary)',
+                  backgroundColor: optimisticSilently ? 'rgba(74,222,128,0.08)' : 'var(--bg-tertiary)',
                 }}
               >
                 <Package
                   className="size-4 transition-colors duration-300"
-                  style={{
-                    color: optimisticSilently
-                      ? 'var(--success)'
-                      : 'var(--text-tertiary)',
-                  }}
+                  style={{ color: optimisticSilently ? 'var(--success)' : 'var(--text-tertiary)' }}
                 />
               </div>
               <div>
-                <h3
-                  className="text-sm font-medium"
-                  style={{ color: 'var(--text-primary)' }}
-                >
+                <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                   Autostart
                 </h3>
-                <p
-                  className="text-xs"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
-                  {silentlySettings
-                    ? 'Silently integration'
-                    : 'No API key configured'}
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  {silentlySettings ? 'Silently integration' : 'No API key configured'}
                 </p>
               </div>
             </div>
@@ -199,34 +152,21 @@ export function QuickSettings({
             />
           </div>
 
-          {/* Details row */}
           <div
             className="flex items-center gap-4 pt-3"
             style={{ borderTop: '1px solid var(--border-subtle)' }}
           >
             <div className="flex items-center gap-1.5">
-              <Package
-                className="size-3"
-                style={{ color: 'var(--text-tertiary)' }}
-              />
-              <span
-                className="text-xs tabular-nums"
-                style={{ color: 'var(--text-secondary)' }}
-              >
+              <Package className="size-3" style={{ color: 'var(--text-tertiary)' }} />
+              <span className="text-xs tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                 Min stock: {silentlySettings?.min_stock ?? 0}
               </span>
             </div>
 
             {silentlySettings?.schedule_start && (
               <div className="flex items-center gap-1.5">
-                <Clock
-                  className="size-3"
-                  style={{ color: 'var(--text-tertiary)' }}
-                />
-                <span
-                  className="text-xs tabular-nums"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
+                <Clock className="size-3" style={{ color: 'var(--text-tertiary)' }} />
+                <span className="text-xs tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                   {formatTime(silentlySettings.schedule_start)}
                   {' - '}
                   {formatTime(silentlySettings.schedule_end)}

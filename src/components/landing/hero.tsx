@@ -46,7 +46,7 @@ export function Hero() {
         className="pointer-events-none absolute inset-0"
         aria-hidden="true"
         style={{
-          background: 'radial-gradient(ellipse 70% 50% at 50% 0%, rgba(192,192,192,0.03) 0%, transparent 70%)',
+          background: 'radial-gradient(ellipse 70% 50% at 50% 0%, rgba(255,255,255,0.03) 0%, transparent 70%)',
         }}
       />
 
@@ -54,9 +54,8 @@ export function Hero() {
       <div className="relative z-10 mx-auto max-w-3xl px-6 text-center">
         {/* Intro pill */}
         <motion.div
-          className="mb-8 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5"
+          className="glass-panel mb-8 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5"
           style={{
-            borderColor: 'var(--border-default)',
             color: 'var(--text-tertiary)',
           }}
           initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
@@ -123,18 +122,9 @@ export function Hero() {
           {/* Secondary CTA */}
           <a
             href="#features"
-            className="flex h-10 items-center gap-2 rounded-lg border px-5 text-sm font-medium transition-colors"
+            className="glass-button flex h-10 items-center gap-2 rounded-lg px-5 text-sm font-medium transition-colors"
             style={{
-              borderColor: 'var(--border-default)',
               color: 'var(--text-secondary)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--bg-hover)'
-              e.currentTarget.style.borderColor = 'var(--border-strong)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent'
-              e.currentTarget.style.borderColor = 'var(--border-default)'
             }}
           >
             See how it works

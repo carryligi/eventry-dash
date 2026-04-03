@@ -17,13 +17,7 @@ export function CTASection() {
 
       <div className="mx-auto max-w-6xl px-6">
         <Reveal>
-          <div
-            className="relative overflow-hidden rounded-lg border p-10 sm:p-14"
-            style={{
-              borderColor: 'var(--border-default)',
-              backgroundColor: 'var(--bg-secondary)',
-            }}
-          >
+          <div className="glass-card relative overflow-hidden rounded-lg p-10 sm:p-14">
             {/* Subtle accent glow at top edge */}
             <div
               className="pointer-events-none absolute inset-x-0 top-0 h-px"

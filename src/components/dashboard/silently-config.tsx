@@ -56,19 +56,14 @@ export function SilentlyConfig({ settings }: SilentlyConfigProps) {
   }
 
   return (
-    <Card
-      style={{
-        backgroundColor: 'var(--bg-secondary)',
-        borderColor: 'var(--border-default)',
-      }}
-    >
+    <Card className="glass-card">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div
               className="flex items-center justify-center size-9 rounded-lg"
               style={{
-                background: 'linear-gradient(135deg, rgba(192,192,192,0.08), rgba(192,192,192,0.04))',
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))',
                 border: '1px solid var(--border-subtle)',
               }}
             >

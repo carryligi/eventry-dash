@@ -53,7 +53,7 @@ export function AddKeywordDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button size="sm">
+          <Button variant="glass" size="sm">
             <Plus className="size-3.5 mr-1" />
             Add Keywords
           </Button>

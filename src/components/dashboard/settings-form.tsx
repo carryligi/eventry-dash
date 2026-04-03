@@ -57,12 +57,7 @@ export function SettingsForm({ cooldownMinutes, pingerActive }: SettingsFormProp
   return (
     <div className="space-y-8">
       {/* Pinger Cooldown Section */}
-      <Card
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          borderColor: 'var(--border-default)',
-        }}
-      >
+      <Card className="glass-card">
         <CardHeader>
           <CardTitle
             className="flex items-center gap-2"
@@ -121,10 +116,9 @@ export function SettingsForm({ cooldownMinutes, pingerActive }: SettingsFormProp
       {/* Danger Zone Section */}
       <Card
         style={{
-          backgroundColor: 'var(--bg-secondary)',
           borderColor: 'rgba(248, 113, 113, 0.2)',
         }}
-        className="ring-1"
+        className="glass-card ring-1"
       >
         <CardHeader>
           <CardTitle

@@ -145,10 +145,8 @@ export function NotificationLogView({
 
       {/* Table */}
       <div
-        className="relative rounded-xl overflow-hidden"
+        className="relative rounded-xl overflow-hidden glass-card"
         style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-subtle)',
           opacity: isPending ? 0.6 : 1,
           transition: 'opacity 200ms',
         }}
@@ -158,7 +156,7 @@ export function NotificationLogView({
           className="absolute top-0 left-0 right-0 h-px"
           style={{
             background:
-              'linear-gradient(90deg, transparent 0%, rgba(192,192,192,0.08) 30%, rgba(192,192,192,0.08) 70%, transparent 100%)',
+              'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
           }}
         />
 
@@ -422,11 +420,7 @@ export function NotificationLogView({
       {/* Pagination */}
       {count > PAGE_SIZE && (
         <div
-          className="flex items-center justify-between rounded-lg px-3 py-2"
-          style={{
-            backgroundColor: 'var(--bg-secondary)',
-            border: '1px solid var(--border-subtle)',
-          }}
+          className="flex items-center justify-between rounded-lg px-3 py-2 glass-card"
         >
           <span
             className="text-xs tabular-nums"

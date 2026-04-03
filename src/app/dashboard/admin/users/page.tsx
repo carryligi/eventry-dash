@@ -51,11 +51,7 @@ export default async function AdminUsersPage({
           <UserSearch initialQuery={query} />
         </div>
         <div
-          className="relative rounded-xl overflow-hidden flex flex-col items-center justify-center py-16"
-          style={{
-            backgroundColor: 'var(--bg-secondary)',
-            border: '1px solid var(--border-subtle)',
-          }}
+          className="glass-card flex flex-col items-center justify-center py-16"
         >
           <p
             className="text-sm font-medium"
@@ -175,17 +171,13 @@ export default async function AdminUsersPage({
       </div>
 
       <div
-        className="relative rounded-xl overflow-hidden"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-subtle)',
-        }}
+        className="glass-card overflow-hidden"
       >
         <div
           className="absolute top-0 left-0 right-0 h-px"
           style={{
             background:
-              'linear-gradient(90deg, transparent 0%, rgba(192,192,192,0.08) 30%, rgba(192,192,192,0.08) 70%, transparent 100%)',
+              'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
           }}
         />
         <Table>
@@ -224,7 +216,7 @@ export default async function AdminUsersPage({
             {users.map((user) => (
               <TableRow
                 key={user.id}
-                className="border-b transition-colors duration-200 cursor-pointer"
+                className="border-b transition-colors duration-200 cursor-pointer glass-table-row"
                 style={{ borderColor: 'var(--border-subtle)' }}
               >
                 <TableCell>

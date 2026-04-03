@@ -289,19 +289,13 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
       </div>
 
       {/* Table */}
-      <div
-        className="rounded-lg overflow-hidden"
-        style={{
-          border: '1px solid var(--border-subtle)',
-          background: 'var(--bg-secondary)',
-        }}
-      >
-        {/* Subtle top-edge metallic sheen */}
+      <div className="glass-card overflow-hidden">
+        {/* Subtle top-edge shine */}
         <div
           className="h-px pointer-events-none"
           style={{
             background:
-              'linear-gradient(90deg, transparent 0%, rgba(192,192,192,0.06) 30%, rgba(192,192,192,0.06) 70%, transparent 100%)',
+              'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
           }}
         />
 
@@ -392,7 +386,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                     style={{
                       borderColor: 'var(--border-subtle)',
                       backgroundColor: isSelected
-                        ? 'rgba(192,192,192,0.04)'
+                        ? 'rgba(255,255,255,0.04)'
                         : undefined,
                     }}
                   >

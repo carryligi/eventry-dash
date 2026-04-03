@@ -45,19 +45,12 @@ export function Features() {
           </div>
         </Reveal>
 
-        <div className="grid gap-px overflow-hidden rounded-lg border sm:grid-cols-3" style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--border-subtle)' }}>
+        <div className="grid gap-px overflow-hidden rounded-lg sm:grid-cols-3" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
           {features.map((feature, i) => (
             <Reveal key={feature.title} delay={i * 0.1}>
-              <div
-                className="flex h-full flex-col p-7 sm:p-8"
-                style={{ backgroundColor: 'var(--bg-secondary)' }}
-              >
+              <div className="glass-card flex h-full flex-col p-7 sm:p-8">
                 <div
-                  className="mb-5 flex h-9 w-9 items-center justify-center rounded-md border"
-                  style={{
-                    borderColor: 'var(--border-default)',
-                    backgroundColor: 'var(--bg-tertiary)',
-                  }}
+                  className="glass-panel mb-5 flex h-9 w-9 items-center justify-center rounded-md"
                 >
                   <feature.icon
                     className="h-4 w-4"

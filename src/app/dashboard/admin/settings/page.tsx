@@ -41,18 +41,12 @@ export default async function AdminSettingsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div
-        className="relative rounded-xl overflow-hidden"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
+      <div className="glass-card relative rounded-xl overflow-hidden">
         <div
           className="absolute top-0 left-0 right-0 h-px"
           style={{
             background:
-              'linear-gradient(90deg, transparent 0%, rgba(192,192,192,0.08) 30%, rgba(192,192,192,0.08) 70%, transparent 100%)',
+              'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
           }}
         />
         <div

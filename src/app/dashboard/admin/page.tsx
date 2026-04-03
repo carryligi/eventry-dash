@@ -43,6 +43,8 @@ export default async function AdminOverviewPage() {
     { count: totalKeywords },
     { count: activePingers },
     { count: todayMatches },
+    { count: pushoverUsers },
+    { count: activeAutostart },
     { data: activeUsers },
     { data: recentLogs },
   ] = await Promise.all([
@@ -60,6 +62,13 @@ export default async function AdminOverviewPage() {
       .from('notification_log')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', new Date().toISOString().split('T')[0]),
+    supabase
+      .from('pushover_settings')
+      .select('*', { count: 'exact', head: true }),
+    supabase
+      .from('silently_settings')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true),
     supabase
       .from('pinger_settings')
       .select('user_id, is_active, profiles!inner(discord_username, discord_avatar)')
@@ -98,36 +107,45 @@ export default async function AdminOverviewPage() {
       subtext: 'Since midnight',
       icon: CalendarClock,
     },
+    {
+      label: 'Pushover Users',
+      value: pushoverUsers ?? 0,
+      subtext: 'With notifications',
+      icon: Bell,
+    },
+    {
+      label: 'Active Autostart',
+      value: activeAutostart ?? 0,
+      subtext: 'Silently enabled',
+      icon: ShoppingCart,
+      highlight: false,
+    },
   ]
 
   return (
     <div className="p-6 space-y-6">
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {stats.map((stat) => {
           const Icon = stat.icon
           return (
             <div
               key={stat.label}
-              className="group relative rounded-xl overflow-hidden transition-all duration-300"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                border: '1px solid var(--border-subtle)',
-              }}
+              className="glass-card group relative rounded-xl overflow-hidden transition-all duration-300"
             >
               <div
                 className="absolute top-0 left-0 right-0 h-px"
                 style={{
                   background: stat.highlight
                     ? 'linear-gradient(90deg, transparent 0%, var(--success) 30%, var(--success) 70%, transparent 100%)'
-                    : 'linear-gradient(90deg, transparent 0%, rgba(192,192,192,0.08) 30%, rgba(192,192,192,0.08) 70%, transparent 100%)',
+                    : 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
                 }}
               />
               <div
                 className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
                 style={{
                   background:
-                    'radial-gradient(ellipse at 50% 0%, rgba(192,192,192,0.03) 0%, transparent 70%)',
+                    'radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.03) 0%, transparent 70%)',
                 }}
               />
               <div className="relative px-4 py-4">
@@ -179,18 +197,12 @@ export default async function AdminOverviewPage() {
       </div>
 
       {/* Active Users */}
-      <div
-        className="relative rounded-xl overflow-hidden"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
+      <div className="glass-card relative rounded-xl overflow-hidden">
         <div
           className="absolute top-0 left-0 right-0 h-px"
           style={{
             background:
-              'linear-gradient(90deg, transparent 0%, rgba(192,192,192,0.08) 30%, rgba(192,192,192,0.08) 70%, transparent 100%)',
+              'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
           }}
         />
         <div
@@ -269,18 +281,12 @@ export default async function AdminOverviewPage() {
       </div>
 
       {/* System Activity Feed */}
-      <div
-        className="relative rounded-xl overflow-hidden"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
+      <div className="glass-card relative rounded-xl overflow-hidden">
         <div
           className="absolute top-0 left-0 right-0 h-px"
           style={{
             background:
-              'linear-gradient(90deg, transparent 0%, rgba(192,192,192,0.08) 30%, rgba(192,192,192,0.08) 70%, transparent 100%)',
+              'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
           }}
         />
         <div

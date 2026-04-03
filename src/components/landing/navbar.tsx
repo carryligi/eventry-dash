@@ -42,16 +42,9 @@ export function Navbar() {
 
         <button
           onClick={loginWithDiscord}
-          className="flex h-8 items-center gap-2 rounded-md border px-3 text-[13px] font-medium transition-colors"
+          className="glass-button flex h-8 items-center gap-2 rounded-md px-3 text-[13px] font-medium transition-colors"
           style={{
-            borderColor: 'var(--border-default)',
             color: 'var(--text-secondary)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--bg-hover)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent'
           }}
         >
           <DiscordIcon />
