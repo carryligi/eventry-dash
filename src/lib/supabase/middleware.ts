@@ -21,6 +21,8 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
+  // Only call getUser() for session refresh + redirect check
+  // This is the minimum required by Supabase SSR for token refresh
   const { data: { user } } = await supabase.auth.getUser()
 
   if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
