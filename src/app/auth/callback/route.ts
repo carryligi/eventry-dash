@@ -6,6 +6,14 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   const next = searchParams.get('next') ?? '/dashboard'
+  const error = searchParams.get('error')
+  const errorDescription = searchParams.get('error_description')
+
+  // Handle OAuth errors from provider
+  if (error) {
+    console.error('OAuth error:', error, errorDescription)
+    return NextResponse.redirect(`${origin}/?error=${encodeURIComponent(error)}`)
+  }
 
   if (code) {
     const cookieStore = await cookies()
@@ -31,9 +39,9 @@ export async function GET(request: Request) {
       }
     )
 
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+    const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
-    if (!error && data.session) {
+    if (!exchangeError && data.session) {
       const meta = data.session.user.user_metadata
 
       const [profileResult] = await Promise.all([
@@ -65,8 +73,14 @@ export async function GET(request: Request) {
       }
     }
 
-    // Auth exchange failed — log for debugging
-    console.error('Auth exchange failed:', error?.message)
+    // Exchange failed - check if user already has a valid session
+    // (happens when code is expired/replayed but session cookie is still valid)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      return NextResponse.redirect(`${origin}/dashboard`)
+    }
+
+    console.error('Auth exchange failed:', exchangeError?.message)
   }
 
   return NextResponse.redirect(`${origin}/?error=auth_failed`)
