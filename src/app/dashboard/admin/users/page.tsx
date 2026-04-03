@@ -74,12 +74,15 @@ export default async function AdminUsersPage({
   const userIds = profiles.map((p) => p.id)
 
   const [
-    { data: keywordCounts },
+    { data: allKeywords },
     { data: pingerData },
     { data: pushoverData },
     { data: silentlyData },
   ] = await Promise.all([
-    supabase.rpc('get_keyword_counts_by_users', { user_ids: userIds }).select('*'),
+    supabase
+      .from('keywords')
+      .select('user_id')
+      .in('user_id', userIds),
     supabase
       .from('pinger_settings')
       .select('user_id, is_active')
@@ -96,9 +99,9 @@ export default async function AdminUsersPage({
 
   // Build lookup maps
   const kwCountMap = new Map<string, number>()
-  if (keywordCounts) {
-    for (const row of keywordCounts as { user_id: string; count: number }[]) {
-      kwCountMap.set(row.user_id, row.count)
+  if (allKeywords) {
+    for (const kw of allKeywords) {
+      kwCountMap.set(kw.user_id, (kwCountMap.get(kw.user_id) ?? 0) + 1)
     }
   }
 
@@ -123,34 +126,13 @@ export default async function AdminUsersPage({
     }
   }
 
-  // If the RPC doesn't exist, fall back to counting per-user
-  // We'll handle this gracefully: if kwCountMap is empty, fetch keyword counts differently
-  let fallbackKwCounts: Map<string, number> | null = null
-  if (kwCountMap.size === 0 && profiles.length > 0) {
-    const { data: allKeywords } = await supabase
-      .from('keywords')
-      .select('user_id')
-      .in('user_id', userIds)
-
-    if (allKeywords) {
-      fallbackKwCounts = new Map<string, number>()
-      for (const kw of allKeywords) {
-        fallbackKwCounts.set(
-          kw.user_id,
-          (fallbackKwCounts.get(kw.user_id) ?? 0) + 1
-        )
-      }
-    }
-  }
-
   const users: UserRow[] = profiles.map((p) => ({
     id: p.id,
     discord_username: p.discord_username,
     discord_avatar: p.discord_avatar,
     is_admin: p.is_admin,
     created_at: p.created_at,
-    keyword_count:
-      kwCountMap.get(p.id) ?? fallbackKwCounts?.get(p.id) ?? 0,
+    keyword_count: kwCountMap.get(p.id) ?? 0,
     pinger_active: pingerMap.get(p.id) ?? false,
     pushover_configured: pushoverSet.has(p.id),
     silently_configured: silentlySet.has(p.id),

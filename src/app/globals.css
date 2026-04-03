@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
@@ -235,24 +234,6 @@
 }
 
 @layer utilities {
-  /* Chrome/Silver metallic gradient text */
-  .text-gradient-chrome {
-    background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  /* Metallic shimmer border */
-  .border-gradient-chrome {
-    border-image: linear-gradient(135deg, var(--accent-start), var(--accent-end)) 1;
-  }
-
-  /* Subtle glow effect for cards/panels */
-  .glow-chrome {
-    box-shadow: 0 0 24px var(--accent-glow), 0 0 48px rgba(200, 200, 208, 0.03);
-  }
-
   /* ── Slate Glass Panels ── */
   .glass-panel {
     background: var(--glass-bg);
@@ -447,18 +428,4 @@
     pointer-events: none;
   }
 
-  /* Noise texture overlay for premium feel */
-  .noise-overlay {
-    position: relative;
-  }
-
-  .noise-overlay::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E");
-    pointer-events: none;
-    border-radius: inherit;
-    z-index: 0;
-  }
 }

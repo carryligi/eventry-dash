@@ -1,4 +1,4 @@
-import { createServerClient } from '@/lib/supabase/server'
+import { getOptionalUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { Navbar } from '@/components/landing/navbar'
 import { Hero } from '@/components/landing/hero'
@@ -8,8 +8,7 @@ import { CTASection } from '@/components/landing/cta-section'
 import { Footer } from '@/components/landing/footer'
 
 export default async function LandingPage() {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getOptionalUser()
 
   if (user) {
     redirect('/dashboard')
