@@ -38,7 +38,7 @@ export function HowItWorks() {
             How it works
           </p>
           <h2
-            className="text-2xl font-bold tracking-[-0.02em] sm:text-3xl"
+            className="text-2xl font-semibold tracking-[-0.02em] sm:text-3xl"
             style={{ color: 'var(--text-primary)' }}
           >
             Three steps. Zero friction.

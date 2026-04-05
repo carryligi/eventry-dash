@@ -20,6 +20,12 @@ export default async function AdminSettingsPage() {
 
   const settingConfigs = [
     {
+      key: 'discord_bot_token',
+      label: 'Discord Bot Token',
+      masked: true,
+      readOnly: false,
+    },
+    {
       key: 'pushover_app_key',
       label: 'Pushover Application Key',
       masked: true,

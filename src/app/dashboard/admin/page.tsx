@@ -121,7 +121,7 @@ async function AdminActiveUsers() {
 
   const { data: activeUsers } = await supabase
     .from('pinger_settings')
-    .select('user_id, is_active, profiles!inner(discord_username, discord_avatar)')
+    .select('user_id, is_active, profiles!inner(username, avatar_url)')
     .eq('is_active', true)
     .limit(10)
 
@@ -145,16 +145,16 @@ async function AdminActiveUsers() {
       ) : (
         <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
           {activeUsers.map((user) => {
-            const profile = user.profiles as unknown as { discord_username: string; discord_avatar: string | null }
+            const profile = user.profiles as unknown as { username: string; avatar_url: string | null }
             return (
               <div key={user.user_id} className="flex items-center gap-3 px-4 py-2.5 transition-colors duration-200" style={{ borderColor: 'var(--border-subtle)' }}>
                 <div
                   className="flex items-center justify-center size-7 rounded-full text-xs font-semibold flex-shrink-0"
                   style={{ background: 'linear-gradient(135deg, var(--accent-start), var(--accent-end))', color: 'var(--bg-root)' }}
                 >
-                  {profile.discord_username?.[0]?.toUpperCase() ?? '?'}
+                  {profile.username?.[0]?.toUpperCase() ?? '?'}
                 </div>
-                <span className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{profile.discord_username}</span>
+                <span className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{profile.username}</span>
                 <Badge variant="default" className="ml-auto text-xs">
                   <span className="inline-block size-1.5 rounded-full mr-1" style={{ backgroundColor: 'var(--success)' }} />
                   Active

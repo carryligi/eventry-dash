@@ -13,8 +13,8 @@ import { Shield, Zap, Bell, ShoppingCart } from 'lucide-react'
 
 interface UserRow {
   id: string
-  discord_username: string
-  discord_avatar: string | null
+  username: string
+  avatar_url: string | null
   is_admin: boolean
   created_at: string
   keyword_count: number
@@ -35,11 +35,11 @@ export default async function AdminUsersPage({
   // Fetch all profiles
   let profilesQuery = supabase
     .from('profiles')
-    .select('id, discord_username, discord_avatar, is_admin, created_at')
+    .select('id, username, avatar_url, is_admin, created_at')
     .order('created_at', { ascending: false })
 
   if (query) {
-    profilesQuery = profilesQuery.ilike('discord_username', `%${query}%`)
+    profilesQuery = profilesQuery.ilike('username', `%${query}%`)
   }
 
   const { data: profiles } = await profilesQuery
@@ -128,8 +128,8 @@ export default async function AdminUsersPage({
 
   const users: UserRow[] = profiles.map((p) => ({
     id: p.id,
-    discord_username: p.discord_username,
-    discord_avatar: p.discord_avatar,
+    username: p.username,
+    avatar_url: p.avatar_url,
     is_admin: p.is_admin,
     created_at: p.created_at,
     keyword_count: kwCountMap.get(p.id) ?? 0,
@@ -214,7 +214,7 @@ export default async function AdminUsersPage({
                         color: 'var(--bg-root)',
                       }}
                     >
-                      {user.discord_username?.[0]?.toUpperCase() ?? '?'}
+                      {user.username?.[0]?.toUpperCase() ?? '?'}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
@@ -222,7 +222,7 @@ export default async function AdminUsersPage({
                           className="text-sm font-medium truncate group-hover:underline"
                           style={{ color: 'var(--text-primary)' }}
                         >
-                          {user.discord_username}
+                          {user.username}
                         </span>
                         {user.is_admin && (
                           <Shield

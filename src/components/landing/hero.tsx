@@ -1,8 +1,7 @@
 'use client'
 
-import { ArrowRight } from 'lucide-react'
-import { DiscordIcon } from '@/components/shared/discord-icon'
-import { loginWithDiscord } from '@/lib/auth-client'
+import { ArrowRight, LogIn } from 'lucide-react'
+import { loginWithWhop } from '@/lib/auth-client'
 
 export function Hero() {
   return (
@@ -24,7 +23,7 @@ export function Hero() {
 
         {/* Headline */}
         <h1
-          className="text-4xl font-bold leading-[1.1] tracking-[-0.025em] sm:text-5xl md:text-6xl"
+          className="text-4xl font-semibold leading-[1.08] tracking-[-0.03em] sm:text-5xl md:text-6xl"
           style={{ color: 'var(--text-primary)' }}
         >
           Monitor. Alert.{' '}
@@ -50,14 +49,14 @@ export function Hero() {
         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
           {/* Primary CTA */}
           <button
-            onClick={loginWithDiscord}
-            className="group flex h-10 items-center gap-2.5 rounded-lg px-5 text-sm font-semibold transition-all duration-200"
+            onClick={loginWithWhop}
+            className="group flex h-10 items-center gap-2.5 rounded-full px-6 text-sm font-medium transition-opacity duration-200 hover:opacity-88"
             style={{
               background: 'linear-gradient(135deg, var(--accent-start), var(--accent-end))',
-              color: 'var(--bg-root)',
+              color: '#000000',
             }}
           >
-            <DiscordIcon className="opacity-70" />
+            <LogIn className="h-4 w-4 opacity-70" />
             Get Started
             <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
           </button>
@@ -65,7 +64,7 @@ export function Hero() {
           {/* Secondary CTA */}
           <a
             href="#features"
-            className="glass-button flex h-10 items-center gap-2 rounded-lg px-5 text-sm font-medium transition-colors"
+            className="glass-button flex h-10 items-center gap-2 rounded-full px-6 text-sm font-medium transition-colors"
             style={{
               color: 'var(--text-secondary)',
             }}

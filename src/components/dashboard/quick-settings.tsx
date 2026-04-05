@@ -53,22 +53,13 @@ export function QuickSettings({
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       {/* Pinger Quick Card */}
       <div className="glass-card group relative overflow-hidden">
-        <div
-          className="absolute top-0 left-0 right-0 h-px"
-          style={{
-            background: optimisticPinger
-              ? 'linear-gradient(90deg, transparent, var(--success), transparent)'
-              : 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)',
-          }}
-        />
-
-        <div className="relative p-4">
+        <div className="p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div
                 className="flex items-center justify-center size-8 rounded-lg transition-colors duration-300"
                 style={{
-                  backgroundColor: optimisticPinger ? 'rgba(74,222,128,0.08)' : 'var(--bg-tertiary)',
+                  backgroundColor: optimisticPinger ? 'rgba(48,209,88,0.08)' : 'var(--bg-tertiary)',
                 }}
               >
                 <Zap
@@ -112,22 +103,13 @@ export function QuickSettings({
         className="glass-card group relative overflow-hidden"
         style={{ opacity: silentlySettings ? 1 : 0.5 }}
       >
-        <div
-          className="absolute top-0 left-0 right-0 h-px"
-          style={{
-            background: optimisticSilently
-              ? 'linear-gradient(90deg, transparent, var(--success), transparent)'
-              : 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)',
-          }}
-        />
-
-        <div className="relative p-4">
+        <div className="p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div
                 className="flex items-center justify-center size-8 rounded-lg transition-colors duration-300"
                 style={{
-                  backgroundColor: optimisticSilently ? 'rgba(74,222,128,0.08)' : 'var(--bg-tertiary)',
+                  backgroundColor: optimisticSilently ? 'rgba(48,209,88,0.08)' : 'var(--bg-tertiary)',
                 }}
               >
                 <Package

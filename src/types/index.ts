@@ -1,8 +1,16 @@
 export interface Profile {
   id: string
-  discord_username: string
+  // Whop fields
+  whop_user_id: string | null
+  username: string | null
+  email: string | null
+  avatar_url: string | null
+  membership_status: string | null
+  // Legacy Discord fields (kept for backwards compatibility)
+  discord_username: string | null
   discord_discriminator: string | null
   discord_avatar: string | null
+  // Common fields
   is_admin: boolean
   created_at: string
   updated_at: string
@@ -73,4 +81,33 @@ export interface AppSetting {
   value: string
   updated_by: string | null
   updated_at: string
+}
+
+// Discord API types
+export interface DiscordChannel {
+  id: string
+  name: string
+  type: number
+  parent_id: string | null
+  position: number
+}
+
+export interface DiscordTextChannel {
+  id: string
+  name: string
+  type: number
+  parent_id: string | null
+  position: number
+}
+
+export interface DiscordCategory {
+  id: string
+  name: string
+  position: number
+  channels: DiscordTextChannel[]
+}
+
+export interface DiscordChannelsResponse {
+  categories: DiscordCategory[]
+  uncategorized: DiscordTextChannel[]
 }

@@ -31,14 +31,6 @@ function timeAgo(dateString: string): string {
 export function RecentActivity({ logs }: RecentActivityProps) {
   return (
     <div className="glass-card overflow-hidden">
-      {/* Top accent line */}
-      <div
-        className="absolute top-0 left-0 right-0 h-px"
-        style={{
-          background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
-        }}
-      />
-
       {/* Section header */}
       <div
         className="px-4 py-3 flex items-center justify-between"
@@ -111,14 +103,14 @@ export function RecentActivity({ logs }: RecentActivityProps) {
                     <div
                       className="flex items-center justify-center size-6 rounded-md"
                       title={log.dm_sent ? 'DM sent' : 'DM not sent'}
-                      style={{ backgroundColor: log.dm_sent ? 'rgba(74,222,128,0.08)' : 'var(--bg-tertiary)' }}
+                      style={{ backgroundColor: log.dm_sent ? 'rgba(48,209,88,0.08)' : 'var(--bg-tertiary)' }}
                     >
                       <MessageSquare className="size-3" style={{ color: log.dm_sent ? 'var(--success)' : 'var(--text-tertiary)' }} />
                     </div>
                     <div
                       className="flex items-center justify-center size-6 rounded-md"
                       title={log.pushover_sent ? 'Push sent' : 'Push not sent'}
-                      style={{ backgroundColor: log.pushover_sent ? 'rgba(74,222,128,0.08)' : 'var(--bg-tertiary)' }}
+                      style={{ backgroundColor: log.pushover_sent ? 'rgba(48,209,88,0.08)' : 'var(--bg-tertiary)' }}
                     >
                       <Bell className="size-3" style={{ color: log.pushover_sent ? 'var(--success)' : 'var(--text-tertiary)' }} />
                     </div>
@@ -127,7 +119,7 @@ export function RecentActivity({ logs }: RecentActivityProps) {
                       title={log.silently_triggered ? (log.silently_success ? 'Autostart success' : 'Autostart failed') : 'Not triggered'}
                       style={{
                         backgroundColor: log.silently_triggered
-                          ? (log.silently_success ? 'rgba(74,222,128,0.08)' : 'rgba(248,113,113,0.08)')
+                          ? (log.silently_success ? 'rgba(48,209,88,0.08)' : 'rgba(255,69,58,0.08)')
                           : 'var(--bg-tertiary)',
                       }}
                     >

@@ -1,16 +1,18 @@
 'use client'
 
 import { Logo } from '@/components/shared/logo'
-import { DiscordIcon } from '@/components/shared/discord-icon'
-import { loginWithDiscord } from '@/lib/auth-client'
+import { loginWithWhop } from '@/lib/auth-client'
+import { LogIn } from 'lucide-react'
 import Link from 'next/link'
 
 export function Navbar() {
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-50 h-16 border-b backdrop-blur-md"
+      className="fixed top-0 left-0 right-0 z-50 h-14 border-b"
       style={{
-        backgroundColor: 'rgba(6, 6, 10, 0.8)',
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        backdropFilter: 'saturate(180%) blur(20px)',
+        WebkitBackdropFilter: 'saturate(180%) blur(20px)',
         borderColor: 'var(--border-subtle)',
       }}
     >
@@ -26,14 +28,14 @@ export function Navbar() {
         </Link>
 
         <button
-          onClick={loginWithDiscord}
+          onClick={loginWithWhop}
           className="glass-button flex h-8 items-center gap-2 rounded-md px-3 text-[13px] font-medium transition-colors"
           style={{
             color: 'var(--text-secondary)',
           }}
         >
-          <DiscordIcon />
-          Login with Discord
+          <LogIn className="size-3.5" />
+          Login
         </button>
       </div>
     </header>

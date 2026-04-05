@@ -28,7 +28,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { NAV_ITEMS, ROUTES } from '@/lib/constants'
 import type { Profile } from '@/types'
-import { createClient } from '@/lib/supabase/client'
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard,
@@ -38,21 +37,17 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Settings2,
 }
 
-function getDiscordAvatarUrl(profile: Profile): string | null {
-  if (!profile.discord_avatar) return null
-  return `https://cdn.discordapp.com/avatars/${profile.id}/${profile.discord_avatar}.png?size=64`
-}
-
 function UserAvatar({ profile }: { profile: Profile }) {
-  const avatarUrl = getDiscordAvatarUrl(profile)
-  const initial = profile.discord_username?.[0]?.toUpperCase() ?? '?'
+  const avatarUrl = profile.avatar_url
+  const displayName = profile.username || profile.discord_username || 'User'
+  const initial = displayName[0]?.toUpperCase() ?? '?'
 
   return (
-    <div className="relative size-8 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-white/10 transition-all duration-200 hover:ring-white/20 hover:shadow-[0_0_12px_rgba(200,200,208,0.08)]">
+    <div className="relative size-8 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-white/8 transition-all duration-200 hover:ring-white/16">
       {avatarUrl ? (
         <Image
           src={avatarUrl}
-          alt={profile.discord_username}
+          alt={displayName}
           width={32}
           height={32}
           className="size-full object-cover"
@@ -82,10 +77,11 @@ export function Sidebar({ profile }: SidebarProps) {
   const router = useRouter()
 
   const handleLogout = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    await fetch('/auth/logout', { method: 'POST' })
     router.push('/')
   }
+
+  const displayName = profile.username || profile.discord_username || 'User'
 
   const isActive = (href: string) => {
     if (href === ROUTES.dashboard) return pathname === href
@@ -99,7 +95,7 @@ export function Sidebar({ profile }: SidebarProps) {
         {/* Logo */}
         <div className="flex items-center justify-center h-16 w-full flex-shrink-0">
           <Link href={ROUTES.dashboard} className="relative group">
-            <div className="relative size-9 rounded-full overflow-hidden transition-all duration-300 group-hover:scale-110 group-hover:shadow-[0_0_20px_rgba(200,200,208,0.15)]">
+            <div className="relative size-9 rounded-full overflow-hidden transition-transform duration-200 group-hover:scale-105">
               <Image
                 src="/logo.png"
                 alt="Eventry"
@@ -148,7 +144,7 @@ export function Sidebar({ profile }: SidebarProps) {
                         className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-[5px] w-[2px] h-5 rounded-full"
                         style={{
                           background: 'linear-gradient(180deg, var(--accent-start), var(--accent-end))',
-                          boxShadow: '0 0 8px rgba(200,200,208,0.3)',
+                          opacity: 0.8,
                         }}
                       />
                     )}
@@ -197,7 +193,7 @@ export function Sidebar({ profile }: SidebarProps) {
                       className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-[5px] w-[2px] h-5 rounded-full"
                       style={{
                         background: 'linear-gradient(180deg, var(--accent-start), var(--accent-end))',
-                        boxShadow: '0 0 8px rgba(200,200,208,0.3)',
+                        opacity: 0.8,
                       }}
                     />
                   )}
@@ -236,7 +232,7 @@ export function Sidebar({ profile }: SidebarProps) {
             <DropdownMenuContent side="right" sideOffset={12} align="end">
               <div className="px-2 py-1.5">
                 <p className="text-sm font-medium truncate max-w-[160px]" style={{ color: 'var(--text-primary)' }}>
-                  {profile.discord_username}
+                  {displayName}
                 </p>
                 {profile.is_admin && (
                   <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
@@ -278,7 +274,7 @@ export function Sidebar({ profile }: SidebarProps) {
                   className="absolute top-0 left-1/2 -translate-x-1/2 h-[2px] w-6 rounded-full"
                   style={{
                     background: 'linear-gradient(90deg, var(--accent-start), var(--accent-end))',
-                    boxShadow: '0 0 8px rgba(200,200,208,0.2)',
+                    opacity: 0.8,
                   }}
                 />
               )}

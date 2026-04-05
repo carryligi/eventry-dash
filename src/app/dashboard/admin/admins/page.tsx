@@ -123,14 +123,14 @@ export default async function AdminManagementPage() {
                             color: 'var(--bg-root)',
                           }}
                         >
-                          {admin.discord_username?.[0]?.toUpperCase() ?? '?'}
+                          {admin.username?.[0]?.toUpperCase() ?? '?'}
                         </div>
                         <div className="flex items-center gap-1.5">
                           <span
                             className="text-sm font-medium"
                             style={{ color: 'var(--text-primary)' }}
                           >
-                            {admin.discord_username}
+                            {admin.username}
                           </span>
                           {isSelf && (
                             <Badge variant="secondary" className="text-xs">

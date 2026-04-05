@@ -23,12 +23,15 @@ import {
 } from '@/components/ui/select'
 import { Plus } from 'lucide-react'
 import { addKeywords } from '@/lib/actions/keywords'
+import { DiscordChannelPicker } from './discord-channel-picker'
 
 export function AddKeywordDialog() {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [scope, setScope] = useState<string>('global')
   const [error, setError] = useState<string | null>(null)
+  const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([])
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('')
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -37,11 +40,21 @@ export function AddKeywordDialog() {
     const formData = new FormData(form)
     formData.set('restriction_type', scope)
 
+    // Set channel/category data from picker state
+    if (scope === 'channels' && selectedChannelIds.length > 0) {
+      formData.set('channel_ids', selectedChannelIds.join(','))
+    }
+    if (scope === 'category' && selectedCategoryId) {
+      formData.set('category_id', selectedCategoryId)
+    }
+
     startTransition(async () => {
       try {
         await addKeywords(formData)
         setOpen(false)
         setScope('global')
+        setSelectedChannelIds([])
+        setSelectedCategoryId('')
         form.reset()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to add keywords')
@@ -104,7 +117,7 @@ export function AddKeywordDialog() {
           {/* Scope */}
           <div className="space-y-2">
             <Label>Scope</Label>
-            <Select value={scope} onValueChange={(v) => { if (v) setScope(v) }}>
+            <Select value={scope} onValueChange={(v) => { if (v) { setScope(v); setSelectedChannelIds([]); setSelectedCategoryId('') } }}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select scope" />
               </SelectTrigger>
@@ -116,31 +129,26 @@ export function AddKeywordDialog() {
             </Select>
           </div>
 
-          {/* Conditional: Channel IDs */}
+          {/* Conditional: Channel picker */}
           {scope === 'channels' && (
             <div className="space-y-2">
-              <Label htmlFor="kw-channels">
-                Channel IDs
-                <span className="text-xs ml-1" style={{ color: 'var(--text-tertiary)' }}>
-                  (comma-separated)
-                </span>
-              </Label>
-              <Input
-                id="kw-channels"
-                name="channel_ids"
-                placeholder="123456789, 987654321"
+              <Label>Channels</Label>
+              <DiscordChannelPicker
+                mode="channels"
+                selectedIds={selectedChannelIds}
+                onSelectionChange={setSelectedChannelIds}
               />
             </div>
           )}
 
-          {/* Conditional: Category ID */}
+          {/* Conditional: Category picker */}
           {scope === 'category' && (
             <div className="space-y-2">
-              <Label htmlFor="kw-category">Category ID</Label>
-              <Input
-                id="kw-category"
-                name="category_id"
-                placeholder="category-id"
+              <Label>Category</Label>
+              <DiscordChannelPicker
+                mode="category"
+                selectedIds={selectedCategoryId ? [selectedCategoryId] : []}
+                onSelectionChange={(ids) => setSelectedCategoryId(ids[0] ?? '')}
               />
             </div>
           )}

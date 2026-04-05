@@ -65,7 +65,7 @@ export async function importBotData(formData: FormData): Promise<ImportResult> {
     await supabase.from('profiles').upsert(
       {
         id: userId,
-        discord_username: `User ${userId.slice(-4)}`,
+        username: `User ${userId.slice(-4)}`,
         is_admin: false,
       },
       { onConflict: 'id', ignoreDuplicates: true }

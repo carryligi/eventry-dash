@@ -22,9 +22,7 @@ export default async function SettingsPage() {
     .eq('user_id', profile.id)
     .single()
 
-  const avatarUrl = profile.discord_avatar
-    ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.discord_avatar}.png?size=128`
-    : null
+  const avatarUrl = profile.avatar_url ?? null
 
   const joinedDate = new Date(profile.created_at).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -65,7 +63,7 @@ export default async function SettingsPage() {
                 {avatarUrl ? (
                   <Image
                     src={avatarUrl}
-                    alt={`${profile.discord_username}'s avatar`}
+                    alt="User avatar"
                     fill
                     className="object-cover"
                   />
@@ -85,7 +83,7 @@ export default async function SettingsPage() {
                   className="text-base font-semibold truncate"
                   style={{ color: 'var(--text-primary)' }}
                 >
-                  {profile.discord_username}
+                  {profile.username || profile.discord_username || 'User'}
                 </p>
                 <p
                   className="text-xs font-mono truncate"

@@ -177,7 +177,7 @@ export default async function AdminUserDetailPage({
                   color: 'var(--bg-root)',
                 }}
               >
-                {typedProfile.discord_username?.[0]?.toUpperCase() ?? '?'}
+                {typedProfile.username?.[0]?.toUpperCase() ?? '?'}
               </div>
               <div>
                 <div className="flex items-center gap-2">
@@ -185,7 +185,7 @@ export default async function AdminUserDetailPage({
                     className="text-lg font-semibold"
                     style={{ color: 'var(--text-primary)' }}
                   >
-                    {typedProfile.discord_username}
+                    {typedProfile.username}
                   </h2>
                   {typedProfile.is_admin && (
                     <Badge variant="default" className="gap-1 text-xs">
