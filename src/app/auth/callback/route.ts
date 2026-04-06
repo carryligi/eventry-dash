@@ -48,10 +48,12 @@ export async function GET(request: Request) {
     const supabase = await createServerClient()
     const userId = whopUser.id
 
+    const displayName = whopUser.username || whopUser.email?.split('@')[0] || 'User'
     const { error: profileError } = await supabase.from('profiles').upsert({
       id: userId,
       whop_user_id: whopUser.id,
-      username: whopUser.username || whopUser.email?.split('@')[0] || 'User',
+      discord_username: displayName,
+      username: displayName,
       email: whopUser.email,
       avatar_url: whopUser.profile_pic_url,
       membership_status: 'active',
