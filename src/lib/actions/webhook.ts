@@ -24,15 +24,29 @@ export async function setWebhookUrl(url: string) {
 
   const profile = await getCurrentUser()
   const supabase = await createServerClient()
-  const { error } = await supabase.from('webhook_settings').upsert(
-    {
+
+  // Check if row exists — update URL only, or insert new row
+  const { data: existing } = await supabase
+    .from('webhook_settings')
+    .select('user_id')
+    .eq('user_id', profile.id)
+    .maybeSingle()
+
+  if (existing) {
+    const { error } = await supabase
+      .from('webhook_settings')
+      .update({ webhook_url: url, is_active: true })
+      .eq('user_id', profile.id)
+    if (error) throw new Error(error.message)
+  } else {
+    const { error } = await supabase.from('webhook_settings').insert({
       user_id: profile.id,
       webhook_url: url,
       is_active: true,
-    },
-    { onConflict: 'user_id' }
-  )
-  if (error) throw new Error(error.message)
+    })
+    if (error) throw new Error(error.message)
+  }
+
   revalidatePath('/dashboard/notifications')
   revalidatePath('/dashboard')
 }
@@ -40,7 +54,10 @@ export async function setWebhookUrl(url: string) {
 export async function removeWebhookUrl() {
   const profile = await getCurrentUser()
   const supabase = await createServerClient()
-  const { error } = await supabase.from('webhook_settings').delete().eq('user_id', profile.id)
+  const { error } = await supabase
+    .from('webhook_settings')
+    .delete()
+    .eq('user_id', profile.id)
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard/notifications')
   revalidatePath('/dashboard')

@@ -48,8 +48,7 @@ export async function updateAppSetting(key: string, value: string) {
 
   const { error } = await supabase
     .from('app_settings')
-    .update({ value, updated_by: admin.id })
-    .eq('key', key)
+    .upsert({ key, value, updated_by: admin.id }, { onConflict: 'key' })
   if (error) throw new Error(error.message)
 
   revalidatePath('/dashboard/admin/settings')
