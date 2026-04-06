@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { exchangeCodeForTokens, getWhopUser, checkCompanyAccess } from '@/lib/whop'
 import { createSession } from '@/lib/session'
 import { createServerClient } from '@/lib/supabase/server'
@@ -18,8 +19,12 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Read PKCE code_verifier from cookie
+    const cookieStore = await cookies()
+    const codeVerifier = cookieStore.get('whop_code_verifier')?.value
+
     // 1. Exchange code for tokens
-    const tokens = await exchangeCodeForTokens(code)
+    const tokens = await exchangeCodeForTokens(code, codeVerifier)
 
     // 2. Get user info
     const whopUser = await getWhopUser(tokens.access_token)
@@ -68,17 +73,23 @@ export async function GET(request: Request) {
       tokens.refresh_token,
     )
 
-    // 6. Redirect to dashboard
+    // 6. Redirect to dashboard (clean up PKCE cookies)
     const forwardedHost = request.headers.get('x-forwarded-host')
     const isLocalEnv = process.env.NODE_ENV === 'development'
 
+    let redirectUrl: string
     if (isLocalEnv) {
-      return NextResponse.redirect(`${origin}/dashboard`)
+      redirectUrl = `${origin}/dashboard`
     } else if (forwardedHost) {
-      return NextResponse.redirect(`https://${forwardedHost}/dashboard`)
+      redirectUrl = `https://${forwardedHost}/dashboard`
     } else {
-      return NextResponse.redirect(`${origin}/dashboard`)
+      redirectUrl = `${origin}/dashboard`
     }
+
+    const response = NextResponse.redirect(redirectUrl)
+    response.cookies.delete('whop_code_verifier')
+    response.cookies.delete('whop_oauth_state')
+    return response
   } catch (err) {
     console.error('Whop auth failed:', err)
     return NextResponse.redirect(`${origin}/?error=auth_failed`)
