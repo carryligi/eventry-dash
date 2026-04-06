@@ -204,17 +204,8 @@ export function WebhookConfig({ settings }: WebhookConfigProps) {
                 />
               </div>
 
-              {/* Test + Remove buttons */}
+              {/* Remove button */}
               <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleTest}
-                  disabled={isPending || !settings.is_active}
-                >
-                  <Send className="size-3.5" data-icon="inline-start" />
-                  Test Webhook
-                </Button>
                 <Dialog>
                   <DialogTrigger
                     render={
@@ -248,41 +239,6 @@ export function WebhookConfig({ settings }: WebhookConfigProps) {
                   </DialogContent>
                 </Dialog>
               </div>
-
-              {/* Test result feedback */}
-              {testResult && (
-                <div
-                  className="flex items-center gap-2 text-sm rounded-lg px-3 py-2"
-                  style={{
-                    backgroundColor: testResult.success
-                      ? 'rgba(74,222,128,0.08)'
-                      : 'rgba(248,113,113,0.08)',
-                    border: `1px solid ${testResult.success ? 'rgba(74,222,128,0.2)' : 'rgba(248,113,113,0.2)'}`,
-                  }}
-                >
-                  {testResult.success ? (
-                    <>
-                      <CheckCircle2
-                        className="size-4 flex-shrink-0"
-                        style={{ color: 'var(--success)' }}
-                      />
-                      <span style={{ color: 'var(--success)' }}>
-                        Test notification sent successfully!
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle
-                        className="size-4 flex-shrink-0"
-                        style={{ color: 'var(--error)' }}
-                      />
-                      <span style={{ color: 'var(--error)' }}>
-                        {testResult.error || 'Failed to send test notification'}
-                      </span>
-                    </>
-                  )}
-                </div>
-              )}
             </>
           ) : (
             /* Set URL form */
@@ -326,6 +282,80 @@ export function WebhookConfig({ settings }: WebhookConfigProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Test Webhook Card */}
+      {isConfigured && settings.is_active && (
+        <Card className="glass-card">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div
+                className="flex items-center justify-center size-9 rounded-lg"
+                style={{
+                  background:
+                    'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))',
+                  border: '1px solid var(--border-subtle)',
+                }}
+              >
+                <Send className="size-4" style={{ color: 'var(--text-accent)' }} />
+              </div>
+              <div>
+                <CardTitle style={{ color: 'var(--text-primary)' }}>
+                  Test Webhook
+                </CardTitle>
+                <CardDescription style={{ color: 'var(--text-secondary)' }}>
+                  Send a test notification to verify your webhook is working
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-3">
+            <Button
+              size="sm"
+              onClick={handleTest}
+              disabled={isPending}
+            >
+              <Send className="size-3.5" data-icon="inline-start" />
+              Send Test Notification
+            </Button>
+
+            {/* Test result feedback */}
+            {testResult && (
+              <div
+                className="flex items-center gap-2 text-sm rounded-lg px-3 py-2"
+                style={{
+                  backgroundColor: testResult.success
+                    ? 'rgba(74,222,128,0.08)'
+                    : 'rgba(248,113,113,0.08)',
+                  border: `1px solid ${testResult.success ? 'rgba(74,222,128,0.2)' : 'rgba(248,113,113,0.2)'}`,
+                }}
+              >
+                {testResult.success ? (
+                  <>
+                    <CheckCircle2
+                      className="size-4 flex-shrink-0"
+                      style={{ color: 'var(--success)' }}
+                    />
+                    <span style={{ color: 'var(--success)' }}>
+                      Test notification sent successfully!
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle
+                      className="size-4 flex-shrink-0"
+                      style={{ color: 'var(--error)' }}
+                    />
+                    <span style={{ color: 'var(--error)' }}>
+                      {testResult.error || 'Failed to send test notification'}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
