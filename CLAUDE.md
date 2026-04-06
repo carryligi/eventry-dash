@@ -50,11 +50,24 @@ git checkout main && git merge Develope && git push origin main && git checkout 
 - **Access logic:** Any Whop-authenticated user gets access (product owner = access)
 - **Env vars:** `NEXT_PUBLIC_WHOP_CLIENT_ID`, `WHOP_CLIENT_SECRET`, `WHOP_API_KEY`, `WHOP_COMPANY_ID`
 
+## Discord Bot
+- **Location:** `bot/` directory (Python, runs on Basti's Windows server)
+- **Architecture:** Reads all config from Supabase (no JSON files, no slash commands)
+- **Realtime:** Supabase async client for instant cache updates when Dashboard settings change
+- **Key:** Uses `supabase` sync client for DB queries, `create_async_client` for Realtime subscriptions
+- **Silently API:** `GET https://qt.silently.gg/?{params}&user_key={keys}&api_key={global_key}` — batches of max 10 users
+- **Global Silently API Key:** Stored in `app_settings` table (key=`silently_api_key`)
+- **Writes to:** `notification_log`, `active_cooldowns`
+- **Start:** `start.bat` on server (auto-creates venv, installs deps, auto-restarts on crash)
+
 ## Supabase
 - Database migrations via Supabase MCP `apply_migration` tool
 - Project ref: `ewsvttrxcqxgifiajvkt`
-- RLS: Permissive policies on profiles + pinger_settings (no Supabase Auth JWT dependency)
+- **RLS: All tables use permissive policies (`true`)** — auth is handled server-side via custom session, NOT via Supabase JWT
+- **IMPORTANT:** Never use `auth.jwt()` or `auth_discord_id()` in RLS policies — Whop Auth doesn't set Supabase JWT
+- Realtime enabled on: `keywords`, `pinger_settings`, `silently_settings`, `pushover_settings`, `webhook_settings`, `autostart_disabled_keywords`, `app_settings`
 - `profiles.discord_username` is nullable (Whop users don't have Discord usernames)
+- `active_cooldowns` has UNIQUE constraint on `(user_id, channel_id, keyword_id)` for upsert
 
 ## Commit Messages
 Jeder Commit muss eine kurze, knackige Beschreibung der Hauptänderungen enthalten. Format:
@@ -72,4 +85,5 @@ Die Aufzählungspunkte sollen in wenigen Wörtern beschreiben, was konkret geän
 - `src/components/` — React components (ui/, landing/, dashboard/)
 - `src/lib/` — Utilities, Supabase clients, server actions, auth helpers
 - `src/types/` — TypeScript types
+- `bot/` — Python Discord bot (Supabase-backed, runs on server)
 - `docs/specs/` — Technical specification

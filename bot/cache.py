@@ -16,7 +16,7 @@ from models import (
     Keyword, PingerSettings, SilentlySettings,
     PushoverSettings, WebhookSettings, AppSettings,
 )
-from config import supabase
+from config import supabase, get_async_supabase
 
 logger = logging.getLogger(__name__)
 
@@ -121,8 +121,9 @@ class BotCache:
 
     # ── Supabase Realtime subscriptions ──────────────────────────────────
 
-    def subscribe(self):
-        """Subscribe to Realtime changes on all config tables."""
+    async def subscribe(self):
+        """Subscribe to Realtime changes on all config tables (async client required)."""
+        async_sb = await get_async_supabase()
         tables = [
             ("keywords", self._on_keywords_change),
             ("pinger_settings", self._on_pinger_change),
@@ -133,16 +134,14 @@ class BotCache:
             ("app_settings", self._on_app_settings_change),
         ]
         for table, callback in tables:
-            channel = (
-                supabase.channel(f"cache_{table}")
-                .on_postgres_changes(
-                    event="*",
-                    schema="public",
-                    table=table,
-                    callback=callback,
-                )
-                .subscribe()
+            channel = async_sb.channel(f"cache_{table}")
+            channel.on_postgres_changes(
+                event="*",
+                schema="public",
+                table=table,
+                callback=callback,
             )
+            await channel.subscribe()
             self._realtime_channels.append(channel)
             logger.info(f"Subscribed to Realtime: {table}")
 

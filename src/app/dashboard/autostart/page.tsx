@@ -23,15 +23,19 @@ export default async function AutostartPage() {
       <TopBar title="Autostart" silentlyActive={silentlySettings?.is_active} />
       <div className="p-6 space-y-6">
         <SilentlyConfig settings={silentlySettings} />
-        <AutostartFilters minStock={silentlySettings?.min_stock ?? 0} />
-        <ScheduleConfig
-          scheduleStart={silentlySettings?.schedule_start ?? null}
-          scheduleEnd={silentlySettings?.schedule_end ?? null}
-        />
-        <KeywordAutostartList
-          keywords={keywords ?? []}
-          disabledKeywords={disabledKeywordsList}
-        />
+        {silentlySettings && (
+          <>
+            <AutostartFilters minStock={silentlySettings.min_stock ?? 0} />
+            <ScheduleConfig
+              scheduleStart={silentlySettings.schedule_start ?? null}
+              scheduleEnd={silentlySettings.schedule_end ?? null}
+            />
+            <KeywordAutostartList
+              keywords={keywords ?? []}
+              disabledKeywords={disabledKeywordsList}
+            />
+          </>
+        )}
       </div>
     </>
   )

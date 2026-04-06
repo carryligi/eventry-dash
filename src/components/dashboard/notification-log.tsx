@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { Fragment, useState, useTransition } from 'react'
 import {
   Table,
   TableBody,
@@ -228,9 +228,8 @@ export function NotificationLogView({
             </TableHeader>
             <TableBody>
               {logs.map((log) => (
-                <>
+                <Fragment key={log.id}>
                   <TableRow
-                    key={log.id}
                     className="border-b transition-colors duration-200 cursor-pointer"
                     style={{
                       borderColor: expandedRow === log.id ? 'transparent' : 'var(--border-subtle)',
@@ -378,7 +377,6 @@ export function NotificationLogView({
                   {/* Expanded detail row */}
                   {expandedRow === log.id && (
                     <TableRow
-                      key={`${log.id}-detail`}
                       className="border-b"
                       style={{ borderColor: 'var(--border-subtle)' }}
                     >
@@ -430,7 +428,7 @@ export function NotificationLogView({
                       </TableCell>
                     </TableRow>
                   )}
-                </>
+                </Fragment>
               ))}
             </TableBody>
           </Table>

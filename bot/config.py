@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
+from supabase._async.client import create_client as create_async_client, AsyncClient
 
 load_dotenv()
 
@@ -24,5 +25,15 @@ AUTHORIZED_ROLES = [
     1341269744720023562,
 ]
 
-# Supabase client (service role — bypasses RLS)
+# Sync client for regular DB queries (service role — bypasses RLS)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+# Async client for Realtime subscriptions (initialized lazily in cache.py)
+_async_client: AsyncClient | None = None
+
+
+async def get_async_supabase() -> AsyncClient:
+    global _async_client
+    if _async_client is None:
+        _async_client = await create_async_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    return _async_client

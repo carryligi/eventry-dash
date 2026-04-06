@@ -40,7 +40,7 @@ async def on_ready():
     await cache.load_all()
 
     # Subscribe to Realtime changes (instant cache updates)
-    cache.subscribe()
+    await cache.subscribe()
 
     bot_start_time = discord.utils.utcnow()
     logger.info(f"Bot ready: {bot.user} | Guild: {GUILD_ID}")

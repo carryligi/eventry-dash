@@ -24,7 +24,7 @@ export async function setWebhookUrl(url: string) {
 
   const profile = await getCurrentUser()
   const supabase = await createServerClient()
-  await supabase.from('webhook_settings').upsert(
+  const { error } = await supabase.from('webhook_settings').upsert(
     {
       user_id: profile.id,
       webhook_url: url,
@@ -32,6 +32,7 @@ export async function setWebhookUrl(url: string) {
     },
     { onConflict: 'user_id' }
   )
+  if (error) throw new Error(error.message)
   revalidatePath('/dashboard/notifications')
   revalidatePath('/dashboard')
 }
@@ -39,7 +40,8 @@ export async function setWebhookUrl(url: string) {
 export async function removeWebhookUrl() {
   const profile = await getCurrentUser()
   const supabase = await createServerClient()
-  await supabase.from('webhook_settings').delete().eq('user_id', profile.id)
+  const { error } = await supabase.from('webhook_settings').delete().eq('user_id', profile.id)
+  if (error) throw new Error(error.message)
   revalidatePath('/dashboard/notifications')
   revalidatePath('/dashboard')
 }
@@ -47,10 +49,11 @@ export async function removeWebhookUrl() {
 export async function toggleWebhook(isActive: boolean) {
   const profile = await getCurrentUser()
   const supabase = await createServerClient()
-  await supabase
+  const { error } = await supabase
     .from('webhook_settings')
     .update({ is_active: isActive })
     .eq('user_id', profile.id)
+  if (error) throw new Error(error.message)
   revalidatePath('/dashboard/notifications')
   revalidatePath('/dashboard')
 }
