@@ -23,21 +23,28 @@ export async function GET(request: Request) {
     const cookieStore = await cookies()
     const codeVerifier = cookieStore.get('whop_code_verifier')?.value
 
-    // 1. Exchange code for tokens (redirect_uri must match what the client sent)
+    // 1. Exchange code for tokens
+    console.log('[auth] Step 1: Exchanging code for tokens...')
     const callbackUri = `${origin}/auth/callback`
     const tokens = await exchangeCodeForTokens(code, codeVerifier, callbackUri)
+    console.log('[auth] Step 1: Token exchange successful')
 
     // 2. Get user info
+    console.log('[auth] Step 2: Fetching user info...')
     const whopUser = await getWhopUser(tokens.access_token)
+    console.log(`[auth] Step 2: Got user ${whopUser.id} (${whopUser.username})`)
 
     // 3. Check company membership
+    console.log('[auth] Step 3: Checking access...')
     const access = await checkCompanyAccess(tokens.access_token)
+    console.log(`[auth] Step 3: Access check result: has_access=${access.has_access}, level=${access.access_level}`)
 
     if (!access.has_access) {
       return NextResponse.redirect(`${origin}/auth/no-access`)
     }
 
     // 4. Upsert profile in database
+    console.log('[auth] Step 4: Upserting profile...')
     const supabase = await createServerClient()
     const userId = whopUser.id
 
@@ -51,7 +58,7 @@ export async function GET(request: Request) {
     }, { onConflict: 'id' })
 
     if (profileError) {
-      console.error('Profile upsert failed:', profileError)
+      console.error('[auth] Step 4: Profile upsert failed:', profileError)
       return NextResponse.redirect(`${origin}/?error=profile_setup_failed`)
     }
 
@@ -60,8 +67,10 @@ export async function GET(request: Request) {
       { user_id: userId, is_active: false, cooldown_minutes: 0 },
       { onConflict: 'user_id', ignoreDuplicates: true }
     )
+    console.log('[auth] Step 4: Profile upserted')
 
     // 5. Create session
+    console.log('[auth] Step 5: Creating session...')
     await createSession(
       {
         userId,
@@ -73,6 +82,7 @@ export async function GET(request: Request) {
       tokens.access_token,
       tokens.refresh_token,
     )
+    console.log('[auth] Step 5: Session created')
 
     // 6. Redirect to dashboard (clean up PKCE cookies)
     const forwardedHost = request.headers.get('x-forwarded-host')
@@ -92,7 +102,7 @@ export async function GET(request: Request) {
     response.cookies.delete('whop_oauth_state')
     return response
   } catch (err) {
-    console.error('Whop auth failed:', err)
+    console.error('[auth] FAILED:', err instanceof Error ? err.message : err)
     return NextResponse.redirect(`${origin}/?error=auth_failed`)
   }
 }
