@@ -23,8 +23,9 @@ export async function GET(request: Request) {
     const cookieStore = await cookies()
     const codeVerifier = cookieStore.get('whop_code_verifier')?.value
 
-    // 1. Exchange code for tokens
-    const tokens = await exchangeCodeForTokens(code, codeVerifier)
+    // 1. Exchange code for tokens (redirect_uri must match what the client sent)
+    const callbackUri = `${origin}/auth/callback`
+    const tokens = await exchangeCodeForTokens(code, codeVerifier, callbackUri)
 
     // 2. Get user info
     const whopUser = await getWhopUser(tokens.access_token)

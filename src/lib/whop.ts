@@ -31,13 +31,13 @@ export function getWhopAuthUrl(state: string): string {
   return `${WHOP_OAUTH_BASE}/authorize?${params.toString()}`
 }
 
-export async function exchangeCodeForTokens(code: string, codeVerifier?: string): Promise<WhopTokenResponse> {
+export async function exchangeCodeForTokens(code: string, codeVerifier?: string, redirectUri?: string): Promise<WhopTokenResponse> {
   const body: Record<string, string> = {
     client_id: process.env.NEXT_PUBLIC_WHOP_CLIENT_ID!,
     client_secret: process.env.WHOP_CLIENT_SECRET!,
     code,
     grant_type: 'authorization_code',
-    redirect_uri: `${process.env.NEXT_PUBLIC_WHOP_REDIRECT_URI ?? 'http://localhost:3000/auth/callback'}`,
+    redirect_uri: redirectUri ?? process.env.NEXT_PUBLIC_WHOP_REDIRECT_URI ?? 'http://localhost:3000/auth/callback',
   }
   if (codeVerifier) {
     body.code_verifier = codeVerifier
