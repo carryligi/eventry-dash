@@ -2,6 +2,7 @@ import { getUserId } from '@/lib/auth'
 import { createServerClient } from '@/lib/supabase/server'
 import { TopBar } from '@/components/dashboard/top-bar'
 import { PushoverConfig } from '@/components/dashboard/pushover-config'
+import { WebhookConfig } from '@/components/dashboard/webhook-config'
 import { NotificationLogView } from '@/components/dashboard/notification-log'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
@@ -9,8 +10,9 @@ export default async function NotificationsPage() {
   const userId = await getUserId()
   const supabase = await createServerClient()
 
-  const [{ data: pushoverSettings }, { data: logs, count }, { data: keywords }] = await Promise.all([
+  const [{ data: pushoverSettings }, { data: webhookSettings }, { data: logs, count }, { data: keywords }] = await Promise.all([
     supabase.from('pushover_settings').select('*').eq('user_id', userId).single(),
+    supabase.from('webhook_settings').select('*').eq('user_id', userId).single(),
     supabase
       .from('notification_log')
       .select('*', { count: 'exact' })
@@ -43,6 +45,12 @@ export default async function NotificationsPage() {
               value={1}
               style={{ fontSize: '0.8125rem' }}
             >
+              Discord Webhook
+            </TabsTrigger>
+            <TabsTrigger
+              value={2}
+              style={{ fontSize: '0.8125rem' }}
+            >
               Notification Log
             </TabsTrigger>
           </TabsList>
@@ -50,6 +58,9 @@ export default async function NotificationsPage() {
             <PushoverConfig settings={pushoverSettings} />
           </TabsContent>
           <TabsContent value={1} className="mt-4">
+            <WebhookConfig settings={webhookSettings} />
+          </TabsContent>
+          <TabsContent value={2} className="mt-4">
             <NotificationLogView
               initialLogs={logs ?? []}
               totalCount={count ?? 0}

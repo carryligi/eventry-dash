@@ -23,7 +23,7 @@ interface WhopAccessCheck {
 export function getWhopAuthUrl(state: string): string {
   const params = new URLSearchParams({
     client_id: process.env.NEXT_PUBLIC_WHOP_CLIENT_ID!,
-    redirect_uri: `${process.env.NEXT_PUBLIC_WHOP_REDIRECT_URI ?? 'http://localhost:3001/auth/callback'}`,
+    redirect_uri: `${process.env.NEXT_PUBLIC_WHOP_REDIRECT_URI ?? 'http://localhost:3000/auth/callback'}`,
     response_type: 'code',
     state,
     scope: 'openid profile email',
@@ -40,7 +40,7 @@ export async function exchangeCodeForTokens(code: string): Promise<WhopTokenResp
       client_secret: process.env.WHOP_CLIENT_SECRET!,
       code,
       grant_type: 'authorization_code',
-      redirect_uri: `${process.env.NEXT_PUBLIC_WHOP_REDIRECT_URI ?? 'http://localhost:3001/auth/callback'}`,
+      redirect_uri: `${process.env.NEXT_PUBLIC_WHOP_REDIRECT_URI ?? 'http://localhost:3000/auth/callback'}`,
     }),
   })
 

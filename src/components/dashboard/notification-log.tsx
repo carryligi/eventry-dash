@@ -21,6 +21,7 @@ import {
   MessageSquare,
   Bell,
   ShoppingCart,
+  Webhook,
   Inbox,
   ChevronLeft,
   ChevronRight,
@@ -329,6 +330,25 @@ export function NotificationLogView({
                                 ? log.silently_success
                                   ? 'var(--success)'
                                   : 'var(--error)'
+                                : 'var(--text-tertiary)',
+                            }}
+                          />
+                        </div>
+                        {/* Webhook */}
+                        <div
+                          className="flex items-center justify-center size-6 rounded-md"
+                          title={log.webhook_sent ? 'Webhook sent' : 'Webhook not sent'}
+                          style={{
+                            backgroundColor: log.webhook_sent
+                              ? 'rgba(74,222,128,0.08)'
+                              : 'var(--bg-tertiary)',
+                          }}
+                        >
+                          <Webhook
+                            className="size-3"
+                            style={{
+                              color: log.webhook_sent
+                                ? 'var(--success)'
                                 : 'var(--text-tertiary)',
                             }}
                           />

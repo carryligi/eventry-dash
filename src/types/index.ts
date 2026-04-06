@@ -53,6 +53,13 @@ export interface SilentlySettings {
   updated_at: string
 }
 
+export interface WebhookSettings {
+  user_id: string
+  webhook_url: string
+  is_active: boolean
+  updated_at: string
+}
+
 export interface AutostartDisabledKeyword {
   id: string
   user_id: string
@@ -72,6 +79,7 @@ export interface NotificationLog {
   pushover_sent: boolean
   silently_triggered: boolean
   silently_success: boolean | null
+  webhook_sent: boolean
   stock_value: number | null
   created_at: string
 }
