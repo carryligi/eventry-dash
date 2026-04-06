@@ -43,15 +43,23 @@ export function PushoverConfig({ settings }: PushoverConfigProps) {
   const handleSetKey = () => {
     if (!keyValue.trim()) return
     startTransition(async () => {
-      await setPushoverKey(keyValue.trim(), selectedPriority)
-      setKeyValue('')
-      setShowKey(false)
+      try {
+        await setPushoverKey(keyValue.trim(), selectedPriority)
+        setKeyValue('')
+        setShowKey(false)
+      } catch {
+        // Server action error
+      }
     })
   }
 
   const handleRemoveKey = () => {
     startTransition(async () => {
-      await removePushoverKey()
+      try {
+        await removePushoverKey()
+      } catch {
+        // Server action error
+      }
     })
   }
 
@@ -59,7 +67,11 @@ export function PushoverConfig({ settings }: PushoverConfigProps) {
     setSelectedPriority(priority)
     if (isConfigured) {
       startTransition(async () => {
-        await updatePriority(priority)
+        try {
+          await updatePriority(priority)
+        } catch {
+          // Server action error
+        }
       })
     }
   }

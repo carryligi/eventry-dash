@@ -27,7 +27,11 @@ export function KeywordAutostartList({ keywords, disabledKeywords }: KeywordAuto
   const handleToggle = (keyword: string, enabled: boolean) => {
     startTransition(async () => {
       setOptimisticDisabled({ keyword, enabled })
-      await toggleKeywordAutostart(keyword, enabled)
+      try {
+        await toggleKeywordAutostart(keyword, enabled)
+      } catch {
+        // Server action error — optimistic state will revert on revalidation
+      }
     })
   }
 

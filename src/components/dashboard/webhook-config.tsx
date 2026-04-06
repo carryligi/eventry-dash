@@ -66,21 +66,33 @@ export function WebhookConfig({ settings }: WebhookConfigProps) {
     const trimmed = urlValue.trim()
     if (!trimmed || !isValidWebhookInput(trimmed)) return
     startTransition(async () => {
-      await setWebhookUrl(trimmed)
-      setUrlValue('')
-      setShowUrl(false)
+      try {
+        await setWebhookUrl(trimmed)
+        setUrlValue('')
+        setShowUrl(false)
+      } catch {
+        // Server action error — page will revalidate
+      }
     })
   }
 
   const handleRemove = () => {
     startTransition(async () => {
-      await removeWebhookUrl()
+      try {
+        await removeWebhookUrl()
+      } catch {
+        // Server action error
+      }
     })
   }
 
   const handleToggle = (checked: boolean) => {
     startTransition(async () => {
-      await toggleWebhook(checked)
+      try {
+        await toggleWebhook(checked)
+      } catch {
+        // Server action error
+      }
     })
   }
 

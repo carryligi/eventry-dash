@@ -37,21 +37,33 @@ export function SilentlyConfig({ settings }: SilentlyConfigProps) {
   const handleSetKey = () => {
     if (!keyValue.trim()) return
     startTransition(async () => {
-      await setSilentlyKey(keyValue.trim())
-      setKeyValue('')
-      setShowKey(false)
+      try {
+        await setSilentlyKey(keyValue.trim())
+        setKeyValue('')
+        setShowKey(false)
+      } catch {
+        // Server action error
+      }
     })
   }
 
   const handleRemoveKey = () => {
     startTransition(async () => {
-      await removeSilentlyKey()
+      try {
+        await removeSilentlyKey()
+      } catch {
+        // Server action error
+      }
     })
   }
 
   const handleToggle = (checked: boolean) => {
     startTransition(async () => {
-      await toggleAutostart(checked)
+      try {
+        await toggleAutostart(checked)
+      } catch {
+        // Server action error
+      }
     })
   }
 

@@ -35,22 +35,34 @@ export function SettingsForm({ cooldownMinutes, pingerActive }: SettingsFormProp
 
   function handleSaveCooldown() {
     startTransition(async () => {
-      await updateCooldown(cooldown)
-      setCooldownSaved(true)
-      setTimeout(() => setCooldownSaved(false), 2000)
+      try {
+        await updateCooldown(cooldown)
+        setCooldownSaved(true)
+        setTimeout(() => setCooldownSaved(false), 2000)
+      } catch {
+        // Server action error
+      }
     })
   }
 
   function handleDeactivatePinger() {
     startDeactivateTransition(async () => {
-      await togglePinger(false)
+      try {
+        await togglePinger(false)
+      } catch {
+        // Server action error
+      }
     })
   }
 
   function handleRemoveAllKeywords() {
     startRemoveTransition(async () => {
-      await removeAllKeywords()
-      setRemoveDialogOpen(false)
+      try {
+        await removeAllKeywords()
+        setRemoveDialogOpen(false)
+      } catch {
+        // Server action error
+      }
     })
   }
 

@@ -37,7 +37,11 @@ export function QuickSettings({
   const handlePingerToggle = (checked: boolean) => {
     startPingerTransition(async () => {
       setOptimisticPinger(checked)
-      await togglePinger(checked)
+      try {
+        await togglePinger(checked)
+      } catch {
+        // Server action error — optimistic state will revert on revalidation
+      }
     })
   }
 
@@ -45,7 +49,11 @@ export function QuickSettings({
     if (!silentlySettings) return
     startSilentlyTransition(async () => {
       setOptimisticSilently(checked)
-      await toggleAutostart(checked)
+      try {
+        await toggleAutostart(checked)
+      } catch {
+        // Server action error
+      }
     })
   }
 

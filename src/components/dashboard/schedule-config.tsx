@@ -35,15 +35,23 @@ export function ScheduleConfig({ scheduleStart, scheduleEnd }: ScheduleConfigPro
     const startVal = start.trim() || null
     const endVal = end.trim() || null
     startTransition(async () => {
-      await updateSchedule(startVal, endVal)
+      try {
+        await updateSchedule(startVal, endVal)
+      } catch {
+        // Server action error
+      }
     })
   }
 
   const handleReset = () => {
     startTransition(async () => {
-      await updateSchedule(null, null)
-      setStart('')
-      setEnd('')
+      try {
+        await updateSchedule(null, null)
+        setStart('')
+        setEnd('')
+      } catch {
+        // Server action error
+      }
     })
   }
 

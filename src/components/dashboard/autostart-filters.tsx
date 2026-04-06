@@ -20,7 +20,11 @@ export function AutostartFilters({ minStock }: AutostartFiltersProps) {
 
   const handleSave = () => {
     startTransition(async () => {
-      await updateMinStock(value)
+      try {
+        await updateMinStock(value)
+      } catch {
+        // Server action error
+      }
     })
   }
 
