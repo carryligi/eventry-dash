@@ -19,7 +19,7 @@ const getProfileById = cache(async (userId: string) => {
         .from('profiles')
         .select('*')
         .eq('id', id)
-        .single()
+        .maybeSingle()
       return profile as Profile | null
     },
     [`profile-${userId}`],

@@ -20,7 +20,7 @@ export default async function SettingsPage() {
     .from('pinger_settings')
     .select('*')
     .eq('user_id', profile.id)
-    .single()
+    .maybeSingle()
 
   const avatarUrl = profile.avatar_url ?? null
 

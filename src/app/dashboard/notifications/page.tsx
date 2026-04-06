@@ -11,8 +11,8 @@ export default async function NotificationsPage() {
   const supabase = await createServerClient()
 
   const [{ data: pushoverSettings }, { data: webhookSettings }, { data: logs, count }, { data: keywords }] = await Promise.all([
-    supabase.from('pushover_settings').select('*').eq('user_id', userId).single(),
-    supabase.from('webhook_settings').select('*').eq('user_id', userId).single(),
+    supabase.from('pushover_settings').select('*').eq('user_id', userId).maybeSingle(),
+    supabase.from('webhook_settings').select('*').eq('user_id', userId).maybeSingle(),
     supabase
       .from('notification_log')
       .select('*', { count: 'exact' })

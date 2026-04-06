@@ -11,7 +11,7 @@ export default async function AutostartPage() {
   const supabase = await createServerClient()
 
   const [{ data: silentlySettings }, { data: keywords }, { data: disabledKws }] = await Promise.all([
-    supabase.from('silently_settings').select('*').eq('user_id', userId).single(),
+    supabase.from('silently_settings').select('*').eq('user_id', userId).maybeSingle(),
     supabase.from('keywords').select('*').eq('user_id', userId).order('keyword'),
     supabase.from('autostart_disabled_keywords').select('keyword').eq('user_id', userId),
   ])

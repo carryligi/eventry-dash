@@ -4,7 +4,18 @@
       "mcp__Claude_Preview__preview_start",
       "Bash(npx next:*)",
       "Bash(npm run:*)",
-      "Bash(npx vercel:*)"
+      "Bash(npx vercel:*)",
+      "Bash(git checkout:*)",
+      "Bash(git stash:*)",
+      "mcp__bdf0900e-2cea-44ac-83bf-0b52ece88e95__apply_migration",
+      "Bash(printf \"app_zkLzod8xXH4984\")",
+      "Bash(printf \"apik_NFMI1Rb5NCt27_A2034500_C_977d685a0a5265cd7ad865940c286dabca50bafdd1a61eb5aa7bffca722d69\")",
+      "Bash(printf \"apik_Q9ENmRZXUGKoi_C1288357_C_f71bf2c6a095dfa3163007a18f181569ceab32b9780f8b8f3e3a2e44d69b2f\")",
+      "Bash(printf \"biz_h8N4tVLcdeweN0\")",
+      "Bash(printf \"https://eventry-dash.vercel.app/auth/callback\")",
+      "Bash(printf \"y\\\\n\")",
+      "WebSearch",
+      "WebFetch(domain:docs.whop.com)"
     ]
   }
 }

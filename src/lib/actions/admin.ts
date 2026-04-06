@@ -12,7 +12,7 @@ export async function grantAdmin(userId: string) {
     .from('profiles')
     .select('id')
     .eq('id', userId)
-    .single()
+    .maybeSingle()
   if (!user) throw new Error('User has not logged in yet')
 
   const { error } = await supabase

@@ -13,7 +13,7 @@ export async function GET() {
     .from('profiles')
     .select('*')
     .eq('id', session.userId)
-    .single()
+    .maybeSingle()
 
   return NextResponse.json(profile)
 }

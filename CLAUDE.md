@@ -42,11 +42,19 @@ git checkout main && git merge Develope && git push origin main && git checkout 
 - **CI (GitHub Actions):** Lint + Typecheck + Build
 - **Production Deploy:** Nur nach bestandenen Quality Checks
 
+## Auth
+- **Provider:** Whop OAuth 2.0 with PKCE (replaced Discord OAuth)
+- **Flow:** Client PKCE (`src/lib/auth-client.ts`) → Whop authorize → Callback (`src/app/auth/callback/route.ts`) → Custom session cookie
+- **Session:** Custom HTTPOnly cookie via `src/lib/session.ts` (NOT Supabase Auth)
+- **Key files:** `src/lib/whop.ts` (token exchange, userinfo, access check), `src/lib/auth-client.ts` (PKCE + redirect)
+- **Access logic:** Any Whop-authenticated user gets access (product owner = access)
+- **Env vars:** `NEXT_PUBLIC_WHOP_CLIENT_ID`, `WHOP_CLIENT_SECRET`, `WHOP_API_KEY`, `WHOP_COMPANY_ID`
+
 ## Supabase
 - Database migrations via Supabase MCP `apply_migration` tool
 - Project ref: `ewsvttrxcqxgifiajvkt`
-- Auth: Discord OAuth (Client ID: `1487428516629843969`)
-- RLS enabled on all tables
+- RLS: Permissive policies on profiles + pinger_settings (no Supabase Auth JWT dependency)
+- `profiles.discord_username` is nullable (Whop users don't have Discord usernames)
 
 ## Commit Messages
 Jeder Commit muss eine kurze, knackige Beschreibung der Hauptänderungen enthalten. Format:

@@ -19,8 +19,8 @@ async function DashboardStats() {
     { count: todayMatches },
   ] = await Promise.all([
     supabase.from('keywords').select('id').eq('user_id', userId),
-    supabase.from('pinger_settings').select('*').eq('user_id', userId).single(),
-    supabase.from('silently_settings').select('*').eq('user_id', userId).single(),
+    supabase.from('pinger_settings').select('*').eq('user_id', userId).maybeSingle(),
+    supabase.from('silently_settings').select('*').eq('user_id', userId).maybeSingle(),
     supabase.from('notification_log').select('*', { count: 'exact', head: true }).eq('user_id', userId),
     supabase.from('notification_log').select('*', { count: 'exact', head: true })
       .eq('user_id', userId)

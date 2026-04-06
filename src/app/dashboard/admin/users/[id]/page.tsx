@@ -78,7 +78,7 @@ export default async function AdminUserDetailPage({
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single(),
+      .maybeSingle(),
     supabase
       .from('keywords')
       .select('*')
@@ -88,17 +88,17 @@ export default async function AdminUserDetailPage({
       .from('pinger_settings')
       .select('*')
       .eq('user_id', userId)
-      .single(),
+      .maybeSingle(),
     supabase
       .from('pushover_settings')
       .select('*')
       .eq('user_id', userId)
-      .single(),
+      .maybeSingle(),
     supabase
       .from('silently_settings')
       .select('*')
       .eq('user_id', userId)
-      .single(),
+      .maybeSingle(),
     supabase
       .from('autostart_disabled_keywords')
       .select('*')

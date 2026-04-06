@@ -64,12 +64,18 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${origin}/?error=profile_setup_failed`)
     }
 
-    // Initialize pinger settings for new users
-    await supabase.from('pinger_settings').upsert(
-      { user_id: userId, is_active: false, cooldown_minutes: 0 },
-      { onConflict: 'user_id', ignoreDuplicates: true }
-    )
-    console.log('[auth] Step 4: Profile upserted')
+    // Initialize settings for new users
+    await Promise.all([
+      supabase.from('pinger_settings').upsert(
+        { user_id: userId, is_active: false, cooldown_minutes: 0 },
+        { onConflict: 'user_id', ignoreDuplicates: true }
+      ),
+      supabase.from('silently_settings').upsert(
+        { user_id: userId, is_active: false, min_stock: 0 },
+        { onConflict: 'user_id', ignoreDuplicates: true }
+      ),
+    ])
+    console.log('[auth] Step 4: Profile + settings upserted')
 
     // 5. Create session
     console.log('[auth] Step 5: Creating session...')

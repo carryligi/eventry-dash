@@ -62,7 +62,7 @@ export async function testWebhook(): Promise<{ success: boolean; error?: string 
     .from('webhook_settings')
     .select('webhook_url')
     .eq('user_id', profile.id)
-    .single()
+    .maybeSingle()
 
   if (!settings?.webhook_url) {
     return { success: false, error: 'No webhook URL configured' }
