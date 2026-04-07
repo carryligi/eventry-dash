@@ -28,54 +28,84 @@ function timeAgo(dateString: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+function ActionIcon({
+  active,
+  success,
+  icon: Icon,
+  title,
+}: {
+  active: boolean
+  success?: boolean
+  icon: typeof MessageSquare
+  title: string
+}) {
+  const isError = active && success === false
+  return (
+    <div
+      className={`flex items-center justify-center size-6 rounded-md ${
+        active
+          ? isError
+            ? 'bg-ev-error/8'
+            : 'bg-ev-success/8'
+          : 'bg-ev-tertiary'
+      }`}
+      title={title}
+    >
+      <Icon
+        className={`size-3 ${
+          active
+            ? isError
+              ? 'text-ev-error'
+              : 'text-ev-success'
+            : 'text-ev-text-tertiary'
+        }`}
+      />
+    </div>
+  )
+}
+
 export function RecentActivity({ logs }: RecentActivityProps) {
   return (
     <div className="glass-card overflow-hidden">
       {/* Section header */}
-      <div
-        className="px-4 py-3 flex items-center justify-between"
-        style={{ borderBottom: '1px solid var(--border-subtle)' }}
-      >
+      <div className="px-4 py-3 flex items-center justify-between border-b border-ev-border-subtle">
         <div className="flex items-center gap-2">
-          <Inbox className="size-4" style={{ color: 'var(--text-tertiary)' }} />
-          <h2 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+          <Inbox className="size-4 text-ev-text-tertiary" />
+          <h2 className="text-sm font-medium text-ev-text-primary">
             Recent Activity
           </h2>
         </div>
-        <span className="text-xs tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
+        <span className="text-xs tabular-nums text-ev-text-tertiary">
           Last {logs.length} entries
         </span>
       </div>
 
       {logs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 px-4">
-          <div
-            className="flex items-center justify-center size-10 rounded-xl mb-3"
-            style={{ backgroundColor: 'var(--bg-tertiary)' }}
-          >
-            <Inbox className="size-5" style={{ color: 'var(--text-tertiary)' }} />
+          <div className="flex items-center justify-center size-10 rounded-xl mb-3 bg-ev-tertiary">
+            <Inbox className="size-5 text-ev-text-tertiary" />
           </div>
-          <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+          <p className="text-sm font-medium text-ev-text-secondary">
             No activity yet
           </p>
-          <p className="text-xs mt-1 text-center max-w-[240px]" style={{ color: 'var(--text-tertiary)' }}>
+          <p className="text-xs mt-1 text-center max-w-[240px] text-ev-text-tertiary">
             Notifications will appear here once your pinger finds matches.
           </p>
         </div>
       ) : (
         <Table>
           <TableHeader>
-            <TableRow className="border-b hover:bg-transparent" style={{ borderColor: 'var(--border-subtle)' }}>
-              <TableHead className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+            <TableRow className="border-b border-ev-border-subtle hover:bg-transparent">
+              <TableHead className="text-xs font-medium uppercase tracking-wider text-ev-text-tertiary">
                 Keyword
               </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              <TableHead className="text-xs font-medium uppercase tracking-wider text-ev-text-tertiary">
                 Channel
               </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider text-center" style={{ color: 'var(--text-tertiary)' }}>
+              <TableHead className="text-xs font-medium uppercase tracking-wider text-center text-ev-text-tertiary">
                 Actions
               </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider text-right" style={{ color: 'var(--text-tertiary)' }}>
+              <TableHead className="text-xs font-medium uppercase tracking-wider text-right text-ev-text-tertiary">
                 Time
               </TableHead>
             </TableRow>
@@ -84,58 +114,47 @@ export function RecentActivity({ logs }: RecentActivityProps) {
             {logs.map((log) => (
               <TableRow
                 key={log.id}
-                className="border-b transition-colors duration-150 glass-table-row"
-                style={{ borderColor: 'var(--border-subtle)' }}
+                className="border-b border-ev-border-subtle transition-colors duration-150 glass-table-row"
               >
                 <TableCell>
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                    <span className="size-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--text-accent)' }} />
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-ev-text-primary">
+                    <span className="size-1.5 rounded-full flex-shrink-0 bg-ev-text-accent" />
                     {log.keyword_text}
                   </span>
                 </TableCell>
                 <TableCell>
-                  <span className="text-sm truncate max-w-[140px] inline-block" style={{ color: 'var(--text-secondary)' }}>
+                  <span className="text-sm truncate max-w-[140px] inline-block text-ev-text-secondary">
                     {log.channel_name ?? 'Unknown'}
                   </span>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-center gap-1.5">
-                    <div
-                      className="flex items-center justify-center size-6 rounded-md"
+                    <ActionIcon
+                      active={log.dm_sent}
+                      icon={MessageSquare}
                       title={log.dm_sent ? 'DM sent' : 'DM not sent'}
-                      style={{ backgroundColor: log.dm_sent ? 'rgba(48,209,88,0.08)' : 'var(--bg-tertiary)' }}
-                    >
-                      <MessageSquare className="size-3" style={{ color: log.dm_sent ? 'var(--success)' : 'var(--text-tertiary)' }} />
-                    </div>
-                    <div
-                      className="flex items-center justify-center size-6 rounded-md"
+                    />
+                    <ActionIcon
+                      active={log.pushover_sent}
+                      icon={Bell}
                       title={log.pushover_sent ? 'Push sent' : 'Push not sent'}
-                      style={{ backgroundColor: log.pushover_sent ? 'rgba(48,209,88,0.08)' : 'var(--bg-tertiary)' }}
-                    >
-                      <Bell className="size-3" style={{ color: log.pushover_sent ? 'var(--success)' : 'var(--text-tertiary)' }} />
-                    </div>
-                    <div
-                      className="flex items-center justify-center size-6 rounded-md"
-                      title={log.silently_triggered ? (log.silently_success ? 'Autostart success' : 'Autostart failed') : 'Not triggered'}
-                      style={{
-                        backgroundColor: log.silently_triggered
-                          ? (log.silently_success ? 'rgba(48,209,88,0.08)' : 'rgba(255,69,58,0.08)')
-                          : 'var(--bg-tertiary)',
-                      }}
-                    >
-                      <ShoppingCart
-                        className="size-3"
-                        style={{
-                          color: log.silently_triggered
-                            ? (log.silently_success ? 'var(--success)' : 'var(--error)')
-                            : 'var(--text-tertiary)',
-                        }}
-                      />
-                    </div>
+                    />
+                    <ActionIcon
+                      active={log.silently_triggered}
+                      success={log.silently_success ?? undefined}
+                      icon={ShoppingCart}
+                      title={
+                        log.silently_triggered
+                          ? log.silently_success
+                            ? 'Autostart success'
+                            : 'Autostart failed'
+                          : 'Not triggered'
+                      }
+                    />
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
-                  <span className="text-xs tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
+                  <span className="text-xs tabular-nums text-ev-text-tertiary">
                     {timeAgo(log.created_at)}
                   </span>
                 </TableCell>

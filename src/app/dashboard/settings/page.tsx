@@ -35,31 +35,16 @@ export default async function SettingsPage() {
       <TopBar title="Settings" />
       <div className="p-6 space-y-8 max-w-2xl">
         {/* User Info Section */}
-        <Card
-          style={{
-            backgroundColor: 'var(--bg-secondary)',
-            borderColor: 'var(--border-default)',
-          }}
-        >
+        <Card className="bg-ev-secondary border-ev-border-default">
           <CardHeader>
-            <CardTitle
-              className="flex items-center gap-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              <User className="size-4" style={{ color: 'var(--text-accent)' }} />
+            <CardTitle className="flex items-center gap-2 text-ev-text-primary">
+              <User className="size-4 text-ev-text-accent" />
               Account
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4">
-              {/* Avatar */}
-              <div
-                className="relative size-16 shrink-0 rounded-full overflow-hidden border-2"
-                style={{
-                  borderColor: 'var(--border-strong)',
-                  backgroundColor: 'var(--bg-tertiary)',
-                }}
-              >
+              <div className="relative size-16 shrink-0 rounded-full overflow-hidden border-2 border-ev-border-strong bg-ev-tertiary">
                 {avatarUrl ? (
                   <Image
                     src={avatarUrl}
@@ -69,41 +54,26 @@ export default async function SettingsPage() {
                   />
                 ) : (
                   <div className="flex items-center justify-center size-full">
-                    <User
-                      className="size-8"
-                      style={{ color: 'var(--text-tertiary)' }}
-                    />
+                    <User className="size-8 text-ev-text-tertiary" />
                   </div>
                 )}
               </div>
 
-              {/* User details */}
               <div className="space-y-1 min-w-0">
-                <p
-                  className="text-base font-semibold truncate"
-                  style={{ color: 'var(--text-primary)' }}
-                >
-                  {profile.username || profile.discord_username || 'User'}
+                <p className="text-base font-semibold truncate text-ev-text-primary">
+                  {profile.username || 'User'}
                 </p>
-                <p
-                  className="text-xs font-mono truncate"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
+                <p className="text-xs font-mono truncate text-ev-text-tertiary">
                   {profile.id}
                 </p>
               </div>
             </div>
 
-            <Separator
-              className="my-4"
-              style={{ backgroundColor: 'var(--border-subtle)' }}
-            />
+            <Separator className="my-4 bg-ev-border-subtle" />
 
             <div className="flex items-center gap-2 text-sm">
-              <span style={{ color: 'var(--text-tertiary)' }}>Joined</span>
-              <span style={{ color: 'var(--text-secondary)' }}>
-                {joinedDate}
-              </span>
+              <span className="text-ev-text-tertiary">Joined</span>
+              <span className="text-ev-text-secondary">{joinedDate}</span>
             </div>
           </CardContent>
         </Card>

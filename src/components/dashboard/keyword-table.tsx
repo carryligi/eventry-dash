@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useTransition, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   Table,
   TableBody,
@@ -21,8 +21,10 @@ import {
   Check,
   X,
   Pencil,
+  Loader2,
 } from 'lucide-react'
 import { deleteKeywords, updateKeywordName } from '@/lib/actions/keywords'
+import { useAction } from '@/hooks/use-action'
 import type { Keyword } from '@/types'
 
 type SortField = 'keyword' | 'internal_name' | 'created_at'
@@ -33,15 +35,16 @@ interface KeywordTableProps {
   disabledKeywords: string[]
 }
 
-function InlineNameEditor({
-  keyword,
-}: {
-  keyword: Keyword
-}) {
+function InlineNameEditor({ keyword }: { keyword: Keyword }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(keyword.internal_name ?? '')
-  const [isPending, startTransition] = useTransition()
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const { execute, isPending } = useAction(
+    (input: { id: string; name: string }) =>
+      updateKeywordName(input.id, input.name),
+    { successMessage: 'Name updated' },
+  )
 
   useEffect(() => {
     if (editing) {
@@ -53,9 +56,7 @@ function InlineNameEditor({
   const save = () => {
     const trimmed = value.trim()
     if (trimmed !== (keyword.internal_name ?? '')) {
-      startTransition(async () => {
-        await updateKeywordName(keyword.id, trimmed)
-      })
+      execute({ id: keyword.id, name: trimmed })
     }
     setEditing(false)
   }
@@ -78,25 +79,19 @@ function InlineNameEditor({
           }}
           onBlur={save}
           disabled={isPending}
-          className="h-6 w-full min-w-[80px] rounded px-1.5 text-sm bg-transparent outline-none transition-colors"
-          style={{
-            border: '1px solid var(--border-strong)',
-            color: 'var(--text-primary)',
-          }}
+          className="h-6 w-full min-w-[80px] rounded border border-ev-border-strong bg-transparent px-1.5 text-sm text-ev-text-primary outline-none transition-colors"
         />
         <button
           onMouseDown={(e) => e.preventDefault()}
           onClick={save}
-          className="flex items-center justify-center size-5 rounded transition-colors"
-          style={{ color: 'var(--success)' }}
+          className="flex items-center justify-center size-5 rounded text-ev-success transition-colors"
         >
           <Check className="size-3" />
         </button>
         <button
           onMouseDown={(e) => e.preventDefault()}
           onClick={cancel}
-          className="flex items-center justify-center size-5 rounded transition-colors"
-          style={{ color: 'var(--text-tertiary)' }}
+          className="flex items-center justify-center size-5 rounded text-ev-text-tertiary transition-colors"
         >
           <X className="size-3" />
         </button>
@@ -107,15 +102,14 @@ function InlineNameEditor({
   return (
     <button
       onClick={() => setEditing(true)}
-      className="group/edit flex items-center gap-1.5 text-left transition-colors rounded px-1 -mx-1 py-0.5"
-      style={{ color: keyword.internal_name ? 'var(--text-primary)' : 'var(--text-tertiary)' }}
+      className={`group/edit flex items-center gap-1.5 text-left transition-colors rounded px-1 -mx-1 py-0.5 ${
+        keyword.internal_name ? 'text-ev-text-primary' : 'text-ev-text-tertiary'
+      }`}
     >
       <span className="truncate max-w-[140px]">
         {keyword.internal_name || 'Add name...'}
       </span>
-      <Pencil
-        className="size-3 opacity-0 group-hover/edit:opacity-60 transition-opacity flex-shrink-0"
-      />
+      <Pencil className="size-3 opacity-0 group-hover/edit:opacity-60 transition-opacity flex-shrink-0" />
     </button>
   )
 }
@@ -128,8 +122,7 @@ function ScopeDisplay({ keyword }: { keyword: Keyword }) {
           Channels
         </Badge>
         <span
-          className="text-xs truncate max-w-[100px]"
-          style={{ color: 'var(--text-tertiary)' }}
+          className="text-xs truncate max-w-[100px] text-ev-text-tertiary"
           title={keyword.channel_ids.join(', ')}
         >
           {keyword.channel_ids.length} ch.
@@ -145,8 +138,7 @@ function ScopeDisplay({ keyword }: { keyword: Keyword }) {
           Category
         </Badge>
         <span
-          className="text-xs truncate max-w-[100px]"
-          style={{ color: 'var(--text-tertiary)' }}
+          className="text-xs truncate max-w-[100px] text-ev-text-tertiary"
           title={keyword.category_id}
         >
           {keyword.category_id}
@@ -167,11 +159,15 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
   const [sortField, setSortField] = useState<SortField>('created_at')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [isPending, startTransition] = useTransition()
+
+  const { execute: executeDelete, isPending } = useAction(deleteKeywords, {
+    successMessage: 'Keywords deleted',
+    onSuccess: () => setSelected(new Set()),
+  })
 
   const disabledSet = useMemo(
     () => new Set(disabledKeywords.map((k) => k.toLowerCase())),
-    [disabledKeywords]
+    [disabledKeywords],
   )
 
   const filtered = useMemo(() => {
@@ -181,7 +177,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
       result = result.filter(
         (kw) =>
           kw.keyword.toLowerCase().includes(q) ||
-          kw.internal_name?.toLowerCase().includes(q)
+          kw.internal_name?.toLowerCase().includes(q),
       )
     }
     result = [...result].sort((a, b) => {
@@ -234,10 +230,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
   const handleDelete = () => {
     const ids = Array.from(selected)
     if (ids.length === 0) return
-    startTransition(async () => {
-      await deleteKeywords(ids)
-      setSelected(new Set())
-    })
+    executeDelete(ids)
   }
 
   const renderSortIcon = (field: SortField) => {
@@ -255,10 +248,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
       {/* Toolbar */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-xs">
-          <Search
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 pointer-events-none"
-            style={{ color: 'var(--text-tertiary)' }}
-          />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 pointer-events-none text-ev-text-tertiary" />
           <Input
             placeholder="Search keywords..."
             value={search}
@@ -269,10 +259,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
 
         {selected.size > 0 && (
           <div className="flex items-center gap-2">
-            <span
-              className="text-xs tabular-nums"
-              style={{ color: 'var(--text-secondary)' }}
-            >
+            <span className="text-xs tabular-nums text-ev-text-secondary">
               {selected.size} selected
             </span>
             <Button
@@ -281,7 +268,11 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
               onClick={handleDelete}
               disabled={isPending}
             >
-              <Trash2 className="size-3.5 mr-1" />
+              {isPending ? (
+                <Loader2 className="size-3.5 mr-1 animate-spin" />
+              ) : (
+                <Trash2 className="size-3.5 mr-1" />
+              )}
               Delete
             </Button>
           </div>
@@ -290,72 +281,53 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
 
       {/* Table */}
       <div className="glass-card overflow-hidden">
-        {/* Subtle top-edge shine */}
-        <div
-          className="h-px pointer-events-none"
-          style={{
-            background:
-              'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
-          }}
-        />
-
         <Table>
           <TableHeader>
-            <TableRow
-              className="border-b hover:bg-transparent"
-              style={{ borderColor: 'var(--border-subtle)' }}
-            >
+            <TableRow className="border-b border-ev-border-subtle hover:bg-transparent">
               <TableHead className="w-10">
                 <label className="flex items-center justify-center cursor-pointer">
                   <input
                     type="checkbox"
                     checked={allSelected}
                     onChange={toggleAll}
-                    className="size-3.5 rounded accent-[var(--primary)] cursor-pointer"
+                    className="size-3.5 rounded cursor-pointer accent-[var(--primary)]"
                   />
                 </label>
               </TableHead>
               <TableHead>
                 <button
                   onClick={() => toggleSort('keyword')}
-                  className="flex items-center gap-1 transition-colors"
-                  style={{ color: 'var(--text-secondary)' }}
+                  className="flex items-center gap-1 text-ev-text-secondary transition-colors"
                 >
                   Keyword
-                  {renderSortIcon("keyword")}
+                  {renderSortIcon('keyword')}
                 </button>
               </TableHead>
               <TableHead>
                 <button
                   onClick={() => toggleSort('internal_name')}
-                  className="flex items-center gap-1 transition-colors"
-                  style={{ color: 'var(--text-secondary)' }}
+                  className="flex items-center gap-1 text-ev-text-secondary transition-colors"
                 >
                   Name
-                  {renderSortIcon("internal_name")}
+                  {renderSortIcon('internal_name')}
                 </button>
               </TableHead>
               <TableHead>
-                <span style={{ color: 'var(--text-secondary)' }}>Scope</span>
+                <span className="text-ev-text-secondary">Scope</span>
               </TableHead>
               <TableHead>
-                <span style={{ color: 'var(--text-secondary)' }}>
-                  Max Price
-                </span>
+                <span className="text-ev-text-secondary">Max Price</span>
               </TableHead>
               <TableHead>
-                <span style={{ color: 'var(--text-secondary)' }}>
-                  Autostart
-                </span>
+                <span className="text-ev-text-secondary">Autostart</span>
               </TableHead>
               <TableHead>
                 <button
                   onClick={() => toggleSort('created_at')}
-                  className="flex items-center gap-1 transition-colors"
-                  style={{ color: 'var(--text-secondary)' }}
+                  className="flex items-center gap-1 text-ev-text-secondary transition-colors"
                 >
                   Added
-                  {renderSortIcon("created_at")}
+                  {renderSortIcon('created_at')}
                 </button>
               </TableHead>
             </TableRow>
@@ -365,8 +337,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
               <TableRow className="hover:bg-transparent">
                 <TableCell
                   colSpan={7}
-                  className="h-24 text-center"
-                  style={{ color: 'var(--text-tertiary)' }}
+                  className="h-24 text-center text-ev-text-tertiary"
                 >
                   {search
                     ? 'No keywords match your search.'
@@ -382,13 +353,9 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                   <TableRow
                     key={kw.id}
                     data-state={isSelected ? 'selected' : undefined}
-                    className="transition-colors"
-                    style={{
-                      borderColor: 'var(--border-subtle)',
-                      backgroundColor: isSelected
-                        ? 'rgba(255,255,255,0.04)'
-                        : undefined,
-                    }}
+                    className={`border-ev-border-subtle transition-colors ${
+                      isSelected ? 'bg-white/[0.04]' : ''
+                    }`}
                   >
                     <TableCell>
                       <label className="flex items-center justify-center cursor-pointer">
@@ -396,15 +363,12 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleOne(kw.id)}
-                          className="size-3.5 rounded accent-[var(--primary)] cursor-pointer"
+                          className="size-3.5 rounded cursor-pointer accent-[var(--primary)]"
                         />
                       </label>
                     </TableCell>
                     <TableCell>
-                      <span
-                        className="font-mono text-[13px] font-medium"
-                        style={{ color: 'var(--text-accent)' }}
-                      >
+                      <span className="font-mono text-[13px] font-medium text-ev-text-accent">
                         {kw.keyword}
                       </span>
                     </TableCell>
@@ -416,17 +380,11 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                     </TableCell>
                     <TableCell>
                       {kw.max_price != null ? (
-                        <span
-                          className="font-mono text-xs"
-                          style={{ color: 'var(--text-secondary)' }}
-                        >
+                        <span className="font-mono text-xs text-ev-text-secondary">
                           ${kw.max_price.toFixed(2)}
                         </span>
                       ) : (
-                        <span
-                          className="text-xs"
-                          style={{ color: 'var(--text-tertiary)' }}
-                        >
+                        <span className="text-xs text-ev-text-tertiary">
                           --
                         </span>
                       )}
@@ -437,10 +395,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                           variant="secondary"
                           className="text-[10px] px-1.5 h-4"
                         >
-                          <span
-                            className="inline-block size-1.5 rounded-full mr-0.5"
-                            style={{ backgroundColor: 'var(--text-tertiary)' }}
-                          />
+                          <span className="inline-block size-1.5 rounded-full mr-0.5 bg-ev-text-tertiary" />
                           Off
                         </Badge>
                       ) : (
@@ -448,19 +403,13 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                           variant="secondary"
                           className="text-[10px] px-1.5 h-4"
                         >
-                          <span
-                            className="inline-block size-1.5 rounded-full mr-0.5"
-                            style={{ backgroundColor: 'var(--success)' }}
-                          />
+                          <span className="inline-block size-1.5 rounded-full mr-0.5 bg-ev-success" />
                           On
                         </Badge>
                       )}
                     </TableCell>
                     <TableCell>
-                      <span
-                        className="text-xs tabular-nums"
-                        style={{ color: 'var(--text-tertiary)' }}
-                      >
+                      <span className="text-xs tabular-nums text-ev-text-tertiary">
                         {new Date(kw.created_at).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',

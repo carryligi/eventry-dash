@@ -1,16 +1,17 @@
+// ── Result type for all server actions ──
+export type ActionResult<T = void> =
+  | { success: true; data: T }
+  | { success: false; error: string }
+
+// ── Domain types (match DB schema) ──
+
 export interface Profile {
   id: string
-  // Whop fields
   whop_user_id: string | null
   username: string | null
   email: string | null
   avatar_url: string | null
   membership_status: string | null
-  // Legacy Discord fields (kept for backwards compatibility)
-  discord_username: string | null
-  discord_discriminator: string | null
-  discord_avatar: string | null
-  // Common fields
   is_admin: boolean
   created_at: string
   updated_at: string
@@ -91,14 +92,7 @@ export interface AppSetting {
   updated_at: string
 }
 
-// Discord API types
-export interface DiscordChannel {
-  id: string
-  name: string
-  type: number
-  parent_id: string | null
-  position: number
-}
+// ── Discord API types (for channel picker) ──
 
 export interface DiscordTextChannel {
   id: string

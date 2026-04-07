@@ -70,12 +70,11 @@ export function NotificationLogView({
 
   const loadPage = (newPage: number, keyword?: string) => {
     startTransition(async () => {
-      const result = await fetchNotificationLogs(
-        newPage,
-        keyword || undefined
-      )
-      setLogs(result.logs)
-      setCount(result.totalCount)
+      const result = await fetchNotificationLogs(newPage, keyword || undefined)
+      if (result.success) {
+        setLogs(result.data.logs)
+        setCount(result.data.totalCount)
+      }
       setPage(newPage)
     })
   }
@@ -104,10 +103,7 @@ export function NotificationLogView({
       {/* Filter bar */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <span
-            className="text-sm font-medium"
-            style={{ color: 'var(--text-secondary)' }}
-          >
+          <span className="text-sm font-medium text-ev-text-secondary">
             Filter by keyword:
           </span>
           <Select
@@ -116,12 +112,7 @@ export function NotificationLogView({
           >
             <SelectTrigger
               size="sm"
-              style={{
-                backgroundColor: 'var(--bg-tertiary)',
-                borderColor: 'var(--border-default)',
-                color: 'var(--text-primary)',
-                minWidth: '160px',
-              }}
+              className="bg-ev-tertiary border-ev-border-default text-ev-text-primary min-w-[160px]"
             >
               <SelectValue placeholder="All keywords" />
             </SelectTrigger>
@@ -136,52 +127,29 @@ export function NotificationLogView({
           </Select>
         </div>
 
-        <span
-          className="text-xs tabular-nums"
-          style={{ color: 'var(--text-tertiary)' }}
-        >
+        <span className="text-xs tabular-nums text-ev-text-tertiary">
           {count} total {count === 1 ? 'entry' : 'entries'}
         </span>
       </div>
 
       {/* Table */}
       <div
-        className="relative rounded-xl overflow-hidden glass-card"
-        style={{
-          opacity: isPending ? 0.6 : 1,
-          transition: 'opacity 200ms',
-        }}
+        className={`relative rounded-xl overflow-hidden glass-card transition-opacity duration-200 ${
+          isPending ? 'opacity-60' : ''
+        }`}
       >
         {/* Top accent line */}
-        <div
-          className="absolute top-0 left-0 right-0 h-px"
-          style={{
-            background:
-              'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
-          }}
-        />
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
 
         {logs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 px-4">
-            <div
-              className="flex items-center justify-center size-10 rounded-xl mb-3"
-              style={{ backgroundColor: 'var(--bg-tertiary)' }}
-            >
-              <Inbox
-                className="size-5"
-                style={{ color: 'var(--text-tertiary)' }}
-              />
+            <div className="flex items-center justify-center size-10 rounded-xl mb-3 bg-ev-tertiary">
+              <Inbox className="size-5 text-ev-text-tertiary" />
             </div>
-            <p
-              className="text-sm font-medium"
-              style={{ color: 'var(--text-secondary)' }}
-            >
+            <p className="text-sm font-medium text-ev-text-secondary">
               No notifications found
             </p>
-            <p
-              className="text-xs mt-1 text-center max-w-[240px]"
-              style={{ color: 'var(--text-tertiary)' }}
-            >
+            <p className="text-xs mt-1 text-center max-w-[240px] text-ev-text-tertiary">
               {selectedKeyword
                 ? 'No entries match the selected keyword filter.'
                 : 'Notifications will appear here once your pinger finds matches.'}
@@ -190,38 +158,20 @@ export function NotificationLogView({
         ) : (
           <Table>
             <TableHeader>
-              <TableRow
-                className="border-b hover:bg-transparent"
-                style={{ borderColor: 'var(--border-subtle)' }}
-              >
-                <TableHead
-                  className="text-xs font-medium uppercase tracking-wider"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
+              <TableRow className="border-b border-ev-border-subtle hover:bg-transparent">
+                <TableHead className="text-xs font-medium uppercase tracking-wider text-ev-text-tertiary">
                   Time
                 </TableHead>
-                <TableHead
-                  className="text-xs font-medium uppercase tracking-wider"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
+                <TableHead className="text-xs font-medium uppercase tracking-wider text-ev-text-tertiary">
                   Keyword
                 </TableHead>
-                <TableHead
-                  className="text-xs font-medium uppercase tracking-wider"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
+                <TableHead className="text-xs font-medium uppercase tracking-wider text-ev-text-tertiary">
                   Channel
                 </TableHead>
-                <TableHead
-                  className="text-xs font-medium uppercase tracking-wider text-center"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
+                <TableHead className="text-xs font-medium uppercase tracking-wider text-center text-ev-text-tertiary">
                   Actions
                 </TableHead>
-                <TableHead
-                  className="text-xs font-medium uppercase tracking-wider text-right"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
+                <TableHead className="text-xs font-medium uppercase tracking-wider text-right text-ev-text-tertiary">
                   Stock
                 </TableHead>
               </TableRow>
@@ -230,37 +180,26 @@ export function NotificationLogView({
               {logs.map((log) => (
                 <Fragment key={log.id}>
                   <TableRow
-                    className="border-b transition-colors duration-200 cursor-pointer"
-                    style={{
-                      borderColor: expandedRow === log.id ? 'transparent' : 'var(--border-subtle)',
-                    }}
+                    className={`border-b transition-colors duration-200 cursor-pointer ${
+                      expandedRow === log.id
+                        ? 'border-transparent'
+                        : 'border-ev-border-subtle'
+                    }`}
                     onClick={() => toggleRow(log.id)}
                   >
                     <TableCell>
-                      <span
-                        className="text-xs tabular-nums whitespace-nowrap"
-                        style={{ color: 'var(--text-tertiary)' }}
-                      >
+                      <span className="text-xs tabular-nums whitespace-nowrap text-ev-text-tertiary">
                         {timeAgo(log.created_at)}
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span
-                        className="inline-flex items-center gap-1.5 text-sm font-medium"
-                        style={{ color: 'var(--text-primary)' }}
-                      >
-                        <span
-                          className="size-1.5 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: 'var(--text-accent)' }}
-                        />
+                      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-ev-text-primary">
+                        <span className="size-1.5 rounded-full flex-shrink-0 bg-ev-text-accent" />
                         {log.keyword_text}
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span
-                        className="text-sm truncate max-w-[140px] inline-block"
-                        style={{ color: 'var(--text-secondary)' }}
-                      >
+                      <span className="text-sm truncate max-w-[140px] inline-block text-ev-text-secondary">
                         {log.channel_name ?? 'Unknown'}
                       </span>
                     </TableCell>
@@ -268,45 +207,39 @@ export function NotificationLogView({
                       <div className="flex items-center justify-center gap-1.5">
                         {/* DM */}
                         <div
-                          className="flex items-center justify-center size-6 rounded-md"
+                          className={`flex items-center justify-center size-6 rounded-md ${
+                            log.dm_sent ? 'bg-ev-success/10' : 'bg-ev-tertiary'
+                          }`}
                           title={log.dm_sent ? 'DM sent' : 'DM not sent'}
-                          style={{
-                            backgroundColor: log.dm_sent
-                              ? 'rgba(74,222,128,0.08)'
-                              : 'var(--bg-tertiary)',
-                          }}
                         >
                           <MessageSquare
-                            className="size-3"
-                            style={{
-                              color: log.dm_sent
-                                ? 'var(--success)'
-                                : 'var(--text-tertiary)',
-                            }}
+                            className={`size-3 ${
+                              log.dm_sent ? 'text-ev-success' : 'text-ev-text-tertiary'
+                            }`}
                           />
                         </div>
                         {/* Push */}
                         <div
-                          className="flex items-center justify-center size-6 rounded-md"
+                          className={`flex items-center justify-center size-6 rounded-md ${
+                            log.pushover_sent ? 'bg-ev-success/10' : 'bg-ev-tertiary'
+                          }`}
                           title={log.pushover_sent ? 'Push sent' : 'Push not sent'}
-                          style={{
-                            backgroundColor: log.pushover_sent
-                              ? 'rgba(74,222,128,0.08)'
-                              : 'var(--bg-tertiary)',
-                          }}
                         >
                           <Bell
-                            className="size-3"
-                            style={{
-                              color: log.pushover_sent
-                                ? 'var(--success)'
-                                : 'var(--text-tertiary)',
-                            }}
+                            className={`size-3 ${
+                              log.pushover_sent ? 'text-ev-success' : 'text-ev-text-tertiary'
+                            }`}
                           />
                         </div>
                         {/* Silently / QT */}
                         <div
-                          className="flex items-center justify-center size-6 rounded-md"
+                          className={`flex items-center justify-center size-6 rounded-md ${
+                            log.silently_triggered
+                              ? log.silently_success
+                                ? 'bg-ev-success/10'
+                                : 'bg-ev-error/10'
+                              : 'bg-ev-tertiary'
+                          }`}
                           title={
                             log.silently_triggered
                               ? log.silently_success
@@ -314,85 +247,51 @@ export function NotificationLogView({
                                 : 'Autostart failed'
                               : 'Not triggered'
                           }
-                          style={{
-                            backgroundColor: log.silently_triggered
-                              ? log.silently_success
-                                ? 'rgba(74,222,128,0.08)'
-                                : 'rgba(248,113,113,0.08)'
-                              : 'var(--bg-tertiary)',
-                          }}
                         >
                           <ShoppingCart
-                            className="size-3"
-                            style={{
-                              color: log.silently_triggered
+                            className={`size-3 ${
+                              log.silently_triggered
                                 ? log.silently_success
-                                  ? 'var(--success)'
-                                  : 'var(--error)'
-                                : 'var(--text-tertiary)',
-                            }}
+                                  ? 'text-ev-success'
+                                  : 'text-ev-error'
+                                : 'text-ev-text-tertiary'
+                            }`}
                           />
                         </div>
                         {/* Webhook */}
                         <div
-                          className="flex items-center justify-center size-6 rounded-md"
+                          className={`flex items-center justify-center size-6 rounded-md ${
+                            log.webhook_sent ? 'bg-ev-success/10' : 'bg-ev-tertiary'
+                          }`}
                           title={log.webhook_sent ? 'Webhook sent' : 'Webhook not sent'}
-                          style={{
-                            backgroundColor: log.webhook_sent
-                              ? 'rgba(74,222,128,0.08)'
-                              : 'var(--bg-tertiary)',
-                          }}
                         >
                           <Webhook
-                            className="size-3"
-                            style={{
-                              color: log.webhook_sent
-                                ? 'var(--success)'
-                                : 'var(--text-tertiary)',
-                            }}
+                            className={`size-3 ${
+                              log.webhook_sent ? 'text-ev-success' : 'text-ev-text-tertiary'
+                            }`}
                           />
                         </div>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
                       {log.stock_value != null ? (
-                        <span
-                          className="inline-flex items-center gap-1 text-xs tabular-nums font-medium"
-                          style={{ color: 'var(--text-secondary)' }}
-                        >
-                          <Package className="size-3" style={{ color: 'var(--text-tertiary)' }} />
+                        <span className="inline-flex items-center gap-1 text-xs tabular-nums font-medium text-ev-text-secondary">
+                          <Package className="size-3 text-ev-text-tertiary" />
                           {log.stock_value}
                         </span>
                       ) : (
-                        <span
-                          className="text-xs"
-                          style={{ color: 'var(--text-tertiary)' }}
-                        >
-                          --
-                        </span>
+                        <span className="text-xs text-ev-text-tertiary">--</span>
                       )}
                     </TableCell>
                   </TableRow>
 
                   {/* Expanded detail row */}
                   {expandedRow === log.id && (
-                    <TableRow
-                      className="border-b"
-                      style={{ borderColor: 'var(--border-subtle)' }}
-                    >
+                    <TableRow className="border-b border-ev-border-subtle">
                       <TableCell colSpan={5}>
-                        <div
-                          className="rounded-lg px-3 py-2 flex items-center justify-between"
-                          style={{
-                            backgroundColor: 'var(--bg-tertiary)',
-                            border: '1px solid var(--border-subtle)',
-                          }}
-                        >
+                        <div className="rounded-lg px-3 py-2 flex items-center justify-between bg-ev-tertiary border border-ev-border-subtle">
                           <div className="flex items-center gap-4">
-                            <span
-                              className="text-xs"
-                              style={{ color: 'var(--text-tertiary)' }}
-                            >
+                            <span className="text-xs text-ev-text-tertiary">
                               {new Date(log.created_at).toLocaleString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
@@ -403,10 +302,7 @@ export function NotificationLogView({
                               })}
                             </span>
                             {log.channel_id && (
-                              <span
-                                className="text-xs font-mono"
-                                style={{ color: 'var(--text-tertiary)' }}
-                              >
+                              <span className="text-xs font-mono text-ev-text-tertiary">
                                 Channel: {log.channel_id}
                               </span>
                             )}
@@ -416,8 +312,7 @@ export function NotificationLogView({
                               href={log.message_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 text-xs font-medium transition-colors hover:opacity-80"
-                              style={{ color: 'var(--text-accent)' }}
+                              className="inline-flex items-center gap-1.5 text-xs font-medium transition-colors hover:opacity-80 text-ev-text-accent"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <ExternalLink className="size-3" />
@@ -437,13 +332,8 @@ export function NotificationLogView({
 
       {/* Pagination */}
       {count > PAGE_SIZE && (
-        <div
-          className="flex items-center justify-between rounded-lg px-3 py-2 glass-card"
-        >
-          <span
-            className="text-xs tabular-nums"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
+        <div className="flex items-center justify-between rounded-lg px-3 py-2 glass-card">
+          <span className="text-xs tabular-nums text-ev-text-tertiary">
             Page {page + 1} of {totalPages}
           </span>
           <div className="flex items-center gap-1">

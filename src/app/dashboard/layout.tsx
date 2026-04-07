@@ -10,8 +10,7 @@ async function SidebarWithData() {
 
 function SidebarSkeleton() {
   return (
-    <aside className="flex h-screen w-14 flex-col items-center border-r py-4 gap-2"
-      style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-subtle)' }}>
+    <aside className="flex h-screen w-14 flex-col items-center border-r border-ev-border-subtle bg-ev-secondary py-4 gap-2">
       <Skeleton className="h-7 w-7 rounded-full" />
       <div className="mt-4 flex flex-col gap-3">
         {Array.from({ length: 5 }).map((_, i) => (
@@ -24,7 +23,7 @@ function SidebarSkeleton() {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    <div className="flex h-screen bg-ev-primary">
       <Suspense fallback={<SidebarSkeleton />}>
         <SidebarWithData />
       </Suspense>

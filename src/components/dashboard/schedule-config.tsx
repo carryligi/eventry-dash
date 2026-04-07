@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
-import { Clock, RotateCcw, Save } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Clock, RotateCcw, Save, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { updateSchedule } from '@/lib/actions/silently'
+import { useAction } from '@/hooks/use-action'
 
 interface ScheduleConfigProps {
   scheduleStart: string | null
@@ -16,10 +17,28 @@ interface ScheduleConfigProps {
 export function ScheduleConfig({ scheduleStart, scheduleEnd }: ScheduleConfigProps) {
   const [start, setStart] = useState(scheduleStart ?? '')
   const [end, setEnd] = useState(scheduleEnd ?? '')
-  const [isPending, startTransition] = useTransition()
 
   const is247 = !scheduleStart && !scheduleEnd
   const hasChanges = start !== (scheduleStart ?? '') || end !== (scheduleEnd ?? '')
+
+  const { execute: executeSave, isPending: isSaving } = useAction(
+    (input: { start: string | null; end: string | null }) =>
+      updateSchedule(input.start, input.end),
+    { successMessage: 'Schedule saved' },
+  )
+
+  const { execute: executeReset, isPending: isResetting } = useAction(
+    () => updateSchedule(null, null),
+    {
+      successMessage: 'Schedule reset to 24/7',
+      onSuccess: () => {
+        setStart('')
+        setEnd('')
+      },
+    },
+  )
+
+  const isPending = isSaving || isResetting
 
   const windowType = useMemo(() => {
     if (!start || !end) return null
@@ -31,48 +50,18 @@ export function ScheduleConfig({ scheduleStart, scheduleEnd }: ScheduleConfigPro
     return endMins > startMins ? 'daytime' : 'overnight (crosses midnight)'
   }, [start, end])
 
-  const handleSave = () => {
-    const startVal = start.trim() || null
-    const endVal = end.trim() || null
-    startTransition(async () => {
-      try {
-        await updateSchedule(startVal, endVal)
-      } catch {
-        // Server action error
-      }
-    })
-  }
-
-  const handleReset = () => {
-    startTransition(async () => {
-      try {
-        await updateSchedule(null, null)
-        setStart('')
-        setEnd('')
-      } catch {
-        // Server action error
-      }
-    })
-  }
-
   return (
     <Card className="glass-card">
       <CardHeader>
         <div className="flex items-center gap-3">
-          <div
-            className="flex items-center justify-center size-9 rounded-lg"
-            style={{
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))',
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
-            <Clock className="size-4" style={{ color: 'var(--text-accent)' }} />
+          <div className="flex items-center justify-center size-9 rounded-lg bg-gradient-to-br from-white/[0.06] to-white/[0.03] border border-ev-border-subtle">
+            <Clock className="size-4 text-ev-text-accent" />
           </div>
           <div>
-            <CardTitle style={{ color: 'var(--text-primary)' }}>
+            <CardTitle className="text-ev-text-primary">
               Schedule
             </CardTitle>
-            <CardDescription style={{ color: 'var(--text-secondary)' }}>
+            <CardDescription className="text-ev-text-secondary">
               {is247
                 ? 'Running 24/7 -- no schedule restrictions'
                 : `Active from ${scheduleStart} to ${scheduleEnd} CEST`}
@@ -84,7 +73,7 @@ export function ScheduleConfig({ scheduleStart, scheduleEnd }: ScheduleConfigPro
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="schedule-start" style={{ color: 'var(--text-secondary)' }}>
+            <Label htmlFor="schedule-start" className="text-ev-text-secondary">
               Start Time
             </Label>
             <Input
@@ -92,15 +81,11 @@ export function ScheduleConfig({ scheduleStart, scheduleEnd }: ScheduleConfigPro
               type="time"
               value={start}
               onChange={(e) => setStart(e.target.value)}
-              style={{
-                backgroundColor: 'var(--bg-tertiary)',
-                borderColor: 'var(--border-default)',
-                color: 'var(--text-primary)',
-              }}
+              className="bg-ev-tertiary border-ev-border-default text-ev-text-primary"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="schedule-end" style={{ color: 'var(--text-secondary)' }}>
+            <Label htmlFor="schedule-end" className="text-ev-text-secondary">
               End Time
             </Label>
             <Input
@@ -108,37 +93,23 @@ export function ScheduleConfig({ scheduleStart, scheduleEnd }: ScheduleConfigPro
               type="time"
               value={end}
               onChange={(e) => setEnd(e.target.value)}
-              style={{
-                backgroundColor: 'var(--bg-tertiary)',
-                borderColor: 'var(--border-default)',
-                color: 'var(--text-primary)',
-              }}
+              className="bg-ev-tertiary border-ev-border-default text-ev-text-primary"
             />
           </div>
         </div>
 
         {/* Timezone and window type info */}
-        <div
-          className="flex items-center justify-between rounded-lg px-3 py-2"
-          style={{
-            backgroundColor: 'var(--bg-tertiary)',
-            border: '1px solid var(--border-subtle)',
-          }}
-        >
-          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+        <div className="flex items-center justify-between rounded-lg bg-ev-tertiary border border-ev-border-subtle px-3 py-2">
+          <span className="text-xs text-ev-text-tertiary">
             Timezone: CEST
           </span>
           {windowType && (
             <span
-              className="text-xs font-medium px-2 py-0.5 rounded-full"
-              style={{
-                backgroundColor: windowType === 'daytime'
-                  ? 'rgba(74, 222, 128, 0.1)'
-                  : 'rgba(251, 191, 36, 0.1)',
-                color: windowType === 'daytime'
-                  ? 'var(--success)'
-                  : 'var(--warning)',
-              }}
+              className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                windowType === 'daytime'
+                  ? 'bg-ev-success/10 text-ev-success'
+                  : 'bg-ev-warning/10 text-ev-warning'
+              }`}
             >
               {windowType}
             </span>
@@ -149,20 +120,28 @@ export function ScheduleConfig({ scheduleStart, scheduleEnd }: ScheduleConfigPro
         <div className="flex items-center gap-2">
           <Button
             size="sm"
-            onClick={handleSave}
+            onClick={() => executeSave({ start: start.trim() || null, end: end.trim() || null })}
             disabled={isPending || !hasChanges || !start || !end}
           >
-            <Save className="size-3.5" data-icon="inline-start" />
+            {isSaving ? (
+              <Loader2 className="size-3.5 mr-1 animate-spin" />
+            ) : (
+              <Save className="size-3.5" data-icon="inline-start" />
+            )}
             Save Schedule
           </Button>
           {!is247 && (
             <Button
               variant="outline"
               size="sm"
-              onClick={handleReset}
+              onClick={() => executeReset(undefined as void)}
               disabled={isPending}
             >
-              <RotateCcw className="size-3.5" data-icon="inline-start" />
+              {isResetting ? (
+                <Loader2 className="size-3.5 mr-1 animate-spin" />
+              ) : (
+                <RotateCcw className="size-3.5" data-icon="inline-start" />
+              )}
               Reset to 24/7
             </Button>
           )}

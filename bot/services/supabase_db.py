@@ -4,7 +4,7 @@ Read operations are handled by the cache (loaded at startup + Realtime).
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from config import supabase
@@ -66,7 +66,7 @@ async def delete_expired_cooldowns():
     """Remove expired cooldowns from DB."""
     try:
         supabase.table("active_cooldowns").delete().lt(
-            "expires_at", datetime.utcnow().isoformat()
+            "expires_at", datetime.now(timezone.utc).isoformat()
         ).execute()
     except Exception as e:
         logger.error(f"Failed to clean cooldowns: {e}")

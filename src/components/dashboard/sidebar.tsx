@@ -39,7 +39,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 function UserAvatar({ profile }: { profile: Profile }) {
   const avatarUrl = profile.avatar_url
-  const displayName = profile.username || profile.discord_username || 'User'
+  const displayName = profile.username || 'User'
   const initial = displayName[0]?.toUpperCase() ?? '?'
 
   return (
@@ -81,7 +81,7 @@ export function Sidebar({ profile }: SidebarProps) {
     router.push('/')
   }
 
-  const displayName = profile.username || profile.discord_username || 'User'
+  const displayName = profile.username || 'User'
 
   const isActive = (href: string) => {
     if (href === ROUTES.dashboard) return pathname === href

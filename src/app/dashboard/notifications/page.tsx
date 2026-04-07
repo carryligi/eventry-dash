@@ -19,52 +19,36 @@ export default async function NotificationsPage() {
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(20),
-    supabase.from('keywords').select('keyword').eq('user_id', userId),
+    supabase.from('keywords').select('*').eq('user_id', userId),
   ])
-
-  const uniqueKeywords = [...new Set((keywords ?? []).map((k: { keyword: string }) => k.keyword))]
 
   return (
     <>
       <TopBar title="Notifications" />
       <div className="p-6">
-        <Tabs defaultValue={0}>
-          <TabsList
-            style={{
-              backgroundColor: 'var(--bg-tertiary)',
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
-            <TabsTrigger
-              value={0}
-              style={{ fontSize: '0.8125rem' }}
-            >
+        <Tabs defaultValue="pushover">
+          <TabsList className="bg-ev-tertiary border border-ev-border-subtle">
+            <TabsTrigger value="pushover" className="text-[0.8125rem]">
               Pushover Settings
             </TabsTrigger>
-            <TabsTrigger
-              value={1}
-              style={{ fontSize: '0.8125rem' }}
-            >
+            <TabsTrigger value="webhook" className="text-[0.8125rem]">
               Discord Webhook
             </TabsTrigger>
-            <TabsTrigger
-              value={2}
-              style={{ fontSize: '0.8125rem' }}
-            >
+            <TabsTrigger value="log" className="text-[0.8125rem]">
               Notification Log
             </TabsTrigger>
           </TabsList>
-          <TabsContent value={0} className="mt-4">
+          <TabsContent value="pushover" className="mt-4">
             <PushoverConfig settings={pushoverSettings} />
           </TabsContent>
-          <TabsContent value={1} className="mt-4">
+          <TabsContent value="webhook" className="mt-4">
             <WebhookConfig settings={webhookSettings} />
           </TabsContent>
-          <TabsContent value={2} className="mt-4">
+          <TabsContent value="log" className="mt-4">
             <NotificationLogView
               initialLogs={logs ?? []}
               totalCount={count ?? 0}
-              keywords={uniqueKeywords}
+              keywords={keywords ?? []}
             />
           </TabsContent>
         </Tabs>

@@ -1,10 +1,11 @@
 'use client'
 
-import { useTransition, useOptimistic } from 'react'
+import { useOptimistic, useTransition } from 'react'
 import { Tag } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { toggleKeywordAutostart } from '@/lib/actions/silently'
+import { useAction } from '@/hooks/use-action'
 import type { Keyword } from '@/types'
 
 interface KeywordAutostartListProps {
@@ -21,46 +22,45 @@ export function KeywordAutostartList({ keywords, disabledKeywords }: KeywordAuto
         return current.filter((k) => k !== keyword)
       }
       return [...current, keyword]
-    }
+    },
+  )
+
+  const { execute } = useAction(
+    (input: { keyword: string; enabled: boolean }) =>
+      toggleKeywordAutostart(input.keyword, input.enabled),
   )
 
   const handleToggle = (keyword: string, enabled: boolean) => {
-    startTransition(async () => {
+    startTransition(() => {
       setOptimisticDisabled({ keyword, enabled })
-      try {
-        await toggleKeywordAutostart(keyword, enabled)
-      } catch {
-        // Server action error — optimistic state will revert on revalidation
-      }
+      execute({ keyword, enabled })
     })
   }
+
+  const iconBlock = (
+    <div className="flex items-center justify-center size-9 rounded-lg bg-gradient-to-br from-white/[0.06] to-white/[0.03] border border-ev-border-subtle">
+      <Tag className="size-4 text-ev-text-accent" />
+    </div>
+  )
 
   if (keywords.length === 0) {
     return (
       <Card className="glass-card">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div
-              className="flex items-center justify-center size-9 rounded-lg"
-              style={{
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              <Tag className="size-4" style={{ color: 'var(--text-accent)' }} />
-            </div>
+            {iconBlock}
             <div>
-              <CardTitle style={{ color: 'var(--text-primary)' }}>
+              <CardTitle className="text-ev-text-primary">
                 Keyword Autostart
               </CardTitle>
-              <CardDescription style={{ color: 'var(--text-secondary)' }}>
+              <CardDescription className="text-ev-text-secondary">
                 No keywords configured yet
               </CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+          <p className="text-sm text-ev-text-tertiary">
             Add keywords in the Keywords page to enable per-keyword autostart control.
           </p>
         </CardContent>
@@ -73,28 +73,17 @@ export function KeywordAutostartList({ keywords, disabledKeywords }: KeywordAuto
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div
-              className="flex items-center justify-center size-9 rounded-lg"
-              style={{
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              <Tag className="size-4" style={{ color: 'var(--text-accent)' }} />
-            </div>
+            {iconBlock}
             <div>
-              <CardTitle style={{ color: 'var(--text-primary)' }}>
+              <CardTitle className="text-ev-text-primary">
                 Keyword Autostart
               </CardTitle>
-              <CardDescription style={{ color: 'var(--text-secondary)' }}>
+              <CardDescription className="text-ev-text-secondary">
                 Control which keywords trigger autostart
               </CardDescription>
             </div>
           </div>
-          <span
-            className="text-xs font-medium"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
+          <span className="text-xs font-medium text-ev-text-tertiary">
             {keywords.length - optimisticDisabled.length}/{keywords.length} active
           </span>
         </div>
@@ -108,32 +97,26 @@ export function KeywordAutostartList({ keywords, disabledKeywords }: KeywordAuto
             return (
               <div
                 key={kw.id}
-                className="flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors"
-                style={{
-                  backgroundColor: isEnabled ? 'transparent' : 'var(--bg-tertiary)',
-                }}
+                className={`flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors ${
+                  isEnabled ? 'bg-transparent' : 'bg-ev-tertiary'
+                }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <span
-                    className="inline-block size-1.5 rounded-full flex-shrink-0"
-                    style={{
-                      backgroundColor: isEnabled ? 'var(--success)' : 'var(--text-tertiary)',
-                    }}
+                    className={`inline-block size-1.5 rounded-full flex-shrink-0 ${
+                      isEnabled ? 'bg-ev-success' : 'bg-ev-text-tertiary'
+                    }`}
                   />
                   <div className="min-w-0">
                     <span
-                      className="text-sm font-medium block truncate"
-                      style={{
-                        color: isEnabled ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                      }}
+                      className={`text-sm font-medium block truncate ${
+                        isEnabled ? 'text-ev-text-primary' : 'text-ev-text-tertiary'
+                      }`}
                     >
                       {kw.keyword}
                     </span>
                     {kw.internal_name && (
-                      <span
-                        className="text-xs block truncate"
-                        style={{ color: 'var(--text-tertiary)' }}
-                      >
+                      <span className="text-xs block truncate text-ev-text-tertiary">
                         {kw.internal_name}
                       </span>
                     )}

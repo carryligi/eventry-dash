@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { Eye, EyeOff, Key, Trash2, Power } from 'lucide-react'
+import { useState } from 'react'
+import { Eye, EyeOff, Key, Trash2, Power, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,7 @@ import {
   DialogClose,
 } from '@/components/ui/dialog'
 import { setSilentlyKey, removeSilentlyKey, toggleAutostart } from '@/lib/actions/silently'
+import { useAction, useActionNoInput } from '@/hooks/use-action'
 import type { SilentlySettings } from '@/types'
 
 interface SilentlyConfigProps {
@@ -27,100 +28,79 @@ interface SilentlyConfigProps {
 export function SilentlyConfig({ settings }: SilentlyConfigProps) {
   const [keyValue, setKeyValue] = useState('')
   const [showKey, setShowKey] = useState(false)
-  const [isPending, startTransition] = useTransition()
 
   const isConfigured = !!settings?.user_key
   const maskedKey = settings?.user_key
     ? settings.user_key.slice(0, 4) + '\u2022'.repeat(24) + settings.user_key.slice(-4)
     : ''
 
-  const handleSetKey = () => {
-    if (!keyValue.trim()) return
-    startTransition(async () => {
-      try {
-        await setSilentlyKey(keyValue.trim())
+  const { execute: executeSetKey, isPending: isSettingKey } = useAction(
+    setSilentlyKey,
+    {
+      successMessage: 'API key saved',
+      onSuccess: () => {
         setKeyValue('')
         setShowKey(false)
-      } catch {
-        // Server action error
-      }
-    })
-  }
+      },
+    },
+  )
 
-  const handleRemoveKey = () => {
-    startTransition(async () => {
-      try {
-        await removeSilentlyKey()
-      } catch {
-        // Server action error
-      }
-    })
-  }
+  const { execute: executeRemoveKey, isPending: isRemovingKey } = useActionNoInput(
+    removeSilentlyKey,
+    { successMessage: 'API key removed' },
+  )
 
-  const handleToggle = (checked: boolean) => {
-    startTransition(async () => {
-      try {
-        await toggleAutostart(checked)
-      } catch {
-        // Server action error
-      }
-    })
-  }
+  const { execute: executeToggle, isPending: isToggling } = useAction(
+    toggleAutostart,
+    { successMessage: 'Autostart updated' },
+  )
+
+  const isPending = isSettingKey || isRemovingKey || isToggling
 
   return (
     <Card className="glass-card">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div
-              className="flex items-center justify-center size-9 rounded-lg"
-              style={{
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              <Key className="size-4" style={{ color: 'var(--text-accent)' }} />
+            <div className="flex items-center justify-center size-9 rounded-lg bg-gradient-to-br from-white/[0.06] to-white/[0.03] border border-ev-border-subtle">
+              <Key className="size-4 text-ev-text-accent" />
             </div>
             <div>
-              <CardTitle style={{ color: 'var(--text-primary)' }}>
+              <CardTitle className="text-ev-text-primary">
                 Silently API Key
               </CardTitle>
-              <CardDescription style={{ color: 'var(--text-secondary)' }}>
+              <CardDescription className="text-ev-text-secondary">
                 {isConfigured ? 'API key configured' : 'No API key configured'}
               </CardDescription>
             </div>
           </div>
 
           {/* Status indicator */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span
-                className="inline-block size-2 rounded-full"
-                style={{
-                  backgroundColor: isConfigured
-                    ? settings?.is_active
-                      ? 'var(--success)'
-                      : 'var(--warning)'
-                    : 'var(--text-tertiary)',
-                }}
-              />
-              <span
-                className="text-xs font-medium"
-                style={{
-                  color: isConfigured
-                    ? settings?.is_active
-                      ? 'var(--success)'
-                      : 'var(--warning)'
-                    : 'var(--text-tertiary)',
-                }}
-              >
-                {isConfigured
+          <div className="flex items-center gap-2">
+            <span
+              className={`inline-block size-2 rounded-full ${
+                isConfigured
                   ? settings?.is_active
-                    ? 'Active'
-                    : 'Inactive'
-                  : 'Not configured'}
-              </span>
-            </div>
+                    ? 'bg-ev-success'
+                    : 'bg-ev-warning'
+                  : 'bg-ev-text-tertiary'
+              }`}
+            />
+            <span
+              className={`text-xs font-medium ${
+                isConfigured
+                  ? settings?.is_active
+                    ? 'text-ev-success'
+                    : 'text-ev-warning'
+                  : 'text-ev-text-tertiary'
+              }`}
+            >
+              {isConfigured
+                ? settings?.is_active
+                  ? 'Active'
+                  : 'Inactive'
+                : 'Not configured'}
+            </span>
           </div>
         </div>
       </CardHeader>
@@ -130,22 +110,14 @@ export function SilentlyConfig({ settings }: SilentlyConfigProps) {
           <>
             {/* Masked key display */}
             <div className="space-y-2">
-              <Label style={{ color: 'var(--text-secondary)' }}>Current Key</Label>
-              <div
-                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-mono"
-                style={{
-                  backgroundColor: 'var(--bg-tertiary)',
-                  border: '1px solid var(--border-subtle)',
-                  color: 'var(--text-secondary)',
-                }}
-              >
+              <Label className="text-ev-text-secondary">Current Key</Label>
+              <div className="flex items-center gap-2 rounded-lg bg-ev-tertiary border border-ev-border-subtle px-3 py-2 text-sm font-mono text-ev-text-secondary">
                 <span className="flex-1 truncate">
                   {showKey ? settings.user_key : maskedKey}
                 </span>
                 <button
                   onClick={() => setShowKey(!showKey)}
-                  className="flex-shrink-0 p-1 rounded transition-colors hover:bg-[var(--bg-hover)]"
-                  style={{ color: 'var(--text-tertiary)' }}
+                  className="flex-shrink-0 p-1 rounded text-ev-text-tertiary transition-colors hover:bg-white/[0.06]"
                 >
                   {showKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
@@ -153,22 +125,16 @@ export function SilentlyConfig({ settings }: SilentlyConfigProps) {
             </div>
 
             {/* Connection toggle */}
-            <div
-              className="flex items-center justify-between rounded-lg px-3 py-3"
-              style={{
-                backgroundColor: 'var(--bg-tertiary)',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
+            <div className="flex items-center justify-between rounded-lg bg-ev-tertiary border border-ev-border-subtle px-3 py-3">
               <div className="flex items-center gap-2">
-                <Power className="size-4" style={{ color: 'var(--text-tertiary)' }} />
-                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                <Power className="size-4 text-ev-text-tertiary" />
+                <span className="text-sm font-medium text-ev-text-primary">
                   Autostart Enabled
                 </span>
               </div>
               <Switch
                 checked={settings.is_active}
-                onCheckedChange={handleToggle}
+                onCheckedChange={(checked) => executeToggle(checked)}
                 disabled={isPending}
               />
             </div>
@@ -197,9 +163,12 @@ export function SilentlyConfig({ settings }: SilentlyConfigProps) {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={handleRemoveKey}
-                    disabled={isPending}
+                    onClick={executeRemoveKey}
+                    disabled={isRemovingKey}
                   >
+                    {isRemovingKey ? (
+                      <Loader2 className="size-3.5 mr-1 animate-spin" />
+                    ) : null}
                     Remove
                   </Button>
                 </DialogFooter>
@@ -209,7 +178,7 @@ export function SilentlyConfig({ settings }: SilentlyConfigProps) {
         ) : (
           /* Set key form */
           <div className="space-y-3">
-            <Label htmlFor="silently-key" style={{ color: 'var(--text-secondary)' }}>
+            <Label htmlFor="silently-key" className="text-ev-text-secondary">
               API Key
             </Label>
             <div className="flex gap-2">
@@ -220,28 +189,27 @@ export function SilentlyConfig({ settings }: SilentlyConfigProps) {
                 value={keyValue}
                 onChange={(e) => setKeyValue(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSetKey()
+                  if (e.key === 'Enter' && keyValue.trim()) executeSetKey(keyValue.trim())
                 }}
-                style={{
-                  backgroundColor: 'var(--bg-tertiary)',
-                  borderColor: 'var(--border-default)',
-                  color: 'var(--text-primary)',
-                }}
+                className="bg-ev-tertiary border-ev-border-default text-ev-text-primary"
               />
               <button
                 onClick={() => setShowKey(!showKey)}
-                className="flex-shrink-0 p-2 rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
-                style={{ color: 'var(--text-tertiary)' }}
+                className="flex-shrink-0 p-2 rounded-lg text-ev-text-tertiary transition-colors hover:bg-white/[0.06]"
               >
                 {showKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </button>
             </div>
             <Button
               size="sm"
-              onClick={handleSetKey}
-              disabled={isPending || !keyValue.trim()}
+              onClick={() => executeSetKey(keyValue.trim())}
+              disabled={isSettingKey || !keyValue.trim()}
             >
-              <Key className="size-3.5" data-icon="inline-start" />
+              {isSettingKey ? (
+                <Loader2 className="size-3.5 mr-1 animate-spin" />
+              ) : (
+                <Key className="size-3.5" data-icon="inline-start" />
+              )}
               Set Key
             </Button>
           </div>

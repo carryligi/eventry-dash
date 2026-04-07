@@ -3,88 +3,120 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import { addKeywordsSchema } from '@/lib/validations'
+import type { ActionResult } from '@/types'
 
-export async function addKeywords(formData: FormData) {
-  const profile = await getCurrentUser()
-  const supabase = await createServerClient()
+export async function addKeywords(input: {
+  keywords: string
+  restriction_type?: string
+  internal_name?: string
+  max_price?: number | string
+  channel_ids?: string
+  category_id?: string
+}): Promise<ActionResult<{ count: number }>> {
+  try {
+    const profile = await getCurrentUser()
 
-  const rawKeywords = (formData.get('keywords') as string) ?? ''
-  const keywords = rawKeywords
-    .split(',')
-    .map((k) => k.trim().toLowerCase())
-    .filter(Boolean)
-  const restrictionType =
-    (formData.get('restriction_type') as string) ?? 'global'
-  const internalName = formData.get('internal_name') as string | null
-  const maxPrice = formData.get('max_price') as string | null
-  const channelIds = formData.get('channel_ids') as string | null
-  const categoryId = formData.get('category_id') as string | null
+    const parsed = addKeywordsSchema.safeParse(input)
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message }
+    }
 
-  if (keywords.length === 0) throw new Error('No keywords provided')
+    const { keywords: rawKeywords, restriction_type, internal_name, max_price, channel_ids, category_id } = parsed.data
 
-  const rows = keywords.map((keyword) => ({
-    user_id: profile.id,
-    keyword,
-    internal_name: internalName?.trim() || null,
-    restriction_type: restrictionType,
-    channel_ids:
-      restrictionType === 'channels' && channelIds
-        ? channelIds
-            .split(',')
-            .map((c) => c.trim())
-            .filter(Boolean)
-        : null,
-    category_id:
-      restrictionType === 'category' ? categoryId?.trim() || null : null,
-    max_price: maxPrice ? parseFloat(maxPrice) : null,
-  }))
+    const keywordList = rawKeywords
+      .split(',')
+      .map(k => k.trim().toLowerCase())
+      .filter(Boolean)
 
-  const { error } = await supabase.from('keywords').insert(rows)
-  if (error) throw new Error(error.message)
+    if (keywordList.length === 0) {
+      return { success: false, error: 'Mindestens ein Keyword eingeben' }
+    }
 
-  revalidatePath('/dashboard/keywords')
-  revalidatePath('/dashboard')
+    const rows = keywordList.map(keyword => ({
+      user_id: profile.id,
+      keyword,
+      internal_name: internal_name?.trim() || null,
+      restriction_type,
+      channel_ids:
+        restriction_type === 'channels' && channel_ids
+          ? channel_ids.split(',').map(c => c.trim()).filter(Boolean)
+          : null,
+      category_id:
+        restriction_type === 'category' ? category_id?.trim() || null : null,
+      max_price: max_price ?? null,
+    }))
+
+    const supabase = await createServerClient()
+    const { error } = await supabase.from('keywords').insert(rows)
+    if (error) return { success: false, error: error.message }
+
+    revalidatePath('/dashboard/keywords')
+    revalidatePath('/dashboard/autostart')
+    revalidatePath('/dashboard')
+    return { success: true, data: { count: keywordList.length } }
+  } catch {
+    return { success: false, error: 'Fehler beim Hinzufuegen der Keywords' }
+  }
 }
 
-export async function deleteKeywords(ids: string[]) {
-  const profile = await getCurrentUser()
-  const supabase = await createServerClient()
-  const { error } = await supabase
-    .from('keywords')
-    .delete()
-    .in('id', ids)
-    .eq('user_id', profile.id)
-  if (error) throw new Error(error.message)
+export async function deleteKeywords(ids: string[]): Promise<ActionResult> {
+  try {
+    if (ids.length === 0) return { success: false, error: 'Keine Keywords ausgewaehlt' }
 
-  revalidatePath('/dashboard/keywords')
-  revalidatePath('/dashboard')
+    const profile = await getCurrentUser()
+    const supabase = await createServerClient()
+    const { error } = await supabase
+      .from('keywords')
+      .delete()
+      .in('id', ids)
+      .eq('user_id', profile.id)
+    if (error) return { success: false, error: error.message }
+
+    revalidatePath('/dashboard/keywords')
+    revalidatePath('/dashboard/autostart')
+    revalidatePath('/dashboard')
+    return { success: true, data: undefined }
+  } catch {
+    return { success: false, error: 'Fehler beim Loeschen der Keywords' }
+  }
 }
 
-export async function updateKeywordName(id: string, internalName: string) {
-  const profile = await getCurrentUser()
-  const supabase = await createServerClient()
-  const { error } = await supabase
-    .from('keywords')
-    .update({
-      internal_name: internalName.trim() || null,
-    })
-    .eq('id', id)
-    .eq('user_id', profile.id)
-  if (error) throw new Error(error.message)
+export async function updateKeywordName(id: string, internalName: string): Promise<ActionResult> {
+  try {
+    const profile = await getCurrentUser()
+    const supabase = await createServerClient()
+    const { error } = await supabase
+      .from('keywords')
+      .update({ internal_name: internalName.trim() || null })
+      .eq('id', id)
+      .eq('user_id', profile.id)
+    if (error) return { success: false, error: error.message }
 
-  revalidatePath('/dashboard/keywords')
+    revalidatePath('/dashboard/keywords')
+    revalidatePath('/dashboard')
+    return { success: true, data: undefined }
+  } catch {
+    return { success: false, error: 'Fehler beim Umbenennen' }
+  }
 }
 
-export async function removeAllKeywords() {
-  const profile = await getCurrentUser()
-  const supabase = await createServerClient()
-  const { error } = await supabase
-    .from('keywords')
-    .delete()
-    .eq('user_id', profile.id)
-  if (error) throw new Error(error.message)
+export async function removeAllKeywords(): Promise<ActionResult> {
+  try {
+    const profile = await getCurrentUser()
+    const supabase = await createServerClient()
+    const { error } = await supabase
+      .from('keywords')
+      .delete()
+      .eq('user_id', profile.id)
+    if (error) return { success: false, error: error.message }
 
-  revalidatePath('/dashboard/keywords')
-  revalidatePath('/dashboard/settings')
-  revalidatePath('/dashboard')
+    revalidatePath('/dashboard/keywords')
+    revalidatePath('/dashboard/autostart')
+    revalidatePath('/dashboard/settings')
+    revalidatePath('/dashboard')
+    return { success: true, data: undefined }
+  } catch {
+    return { success: false, error: 'Fehler beim Loeschen aller Keywords' }
+  }
 }

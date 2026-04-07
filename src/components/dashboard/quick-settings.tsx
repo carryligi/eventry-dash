@@ -1,8 +1,9 @@
 'use client'
 
-import { useOptimistic, useTransition } from 'react'
+import { useOptimistic } from 'react'
 import { Zap, Timer, Package, Clock } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
+import { useAction } from '@/hooks/use-action'
 import { togglePinger } from '@/lib/actions/pinger'
 import { toggleAutostart } from '@/lib/actions/silently'
 import type { PingerSettings, SilentlySettings } from '@/types'
@@ -21,40 +22,33 @@ export function QuickSettings({
   pingerSettings,
   silentlySettings,
 }: QuickSettingsProps) {
-  const [pingerPending, startPingerTransition] = useTransition()
-  const [silentlyPending, startSilentlyTransition] = useTransition()
-
   const [optimisticPinger, setOptimisticPinger] = useOptimistic(
     pingerSettings?.is_active ?? false,
-    (_current: boolean, next: boolean) => next
+    (_current: boolean, next: boolean) => next,
   )
 
   const [optimisticSilently, setOptimisticSilently] = useOptimistic(
     silentlySettings?.is_active ?? false,
-    (_current: boolean, next: boolean) => next
+    (_current: boolean, next: boolean) => next,
   )
 
+  const pingerAction = useAction(togglePinger, {
+    successMessage: 'Pinger updated',
+  })
+
+  const autostartAction = useAction(toggleAutostart, {
+    successMessage: 'Autostart updated',
+  })
+
   const handlePingerToggle = (checked: boolean) => {
-    startPingerTransition(async () => {
-      setOptimisticPinger(checked)
-      try {
-        await togglePinger(checked)
-      } catch {
-        // Server action error — optimistic state will revert on revalidation
-      }
-    })
+    setOptimisticPinger(checked)
+    pingerAction.execute(checked)
   }
 
   const handleSilentlyToggle = (checked: boolean) => {
     if (!silentlySettings) return
-    startSilentlyTransition(async () => {
-      setOptimisticSilently(checked)
-      try {
-        await toggleAutostart(checked)
-      } catch {
-        // Server action error
-      }
-    })
+    setOptimisticSilently(checked)
+    autostartAction.execute(checked)
   }
 
   return (
@@ -65,21 +59,21 @@ export function QuickSettings({
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div
-                className="flex items-center justify-center size-8 rounded-lg transition-colors duration-300"
-                style={{
-                  backgroundColor: optimisticPinger ? 'rgba(48,209,88,0.08)' : 'var(--bg-tertiary)',
-                }}
+                className={`flex items-center justify-center size-8 rounded-lg transition-colors duration-300 ${
+                  optimisticPinger ? 'bg-ev-success/8' : 'bg-ev-tertiary'
+                }`}
               >
                 <Zap
-                  className="size-4 transition-colors duration-300"
-                  style={{ color: optimisticPinger ? 'var(--success)' : 'var(--text-tertiary)' }}
+                  className={`size-4 transition-colors duration-300 ${
+                    optimisticPinger ? 'text-ev-success' : 'text-ev-text-tertiary'
+                  }`}
                 />
               </div>
               <div>
-                <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                <h3 className="text-sm font-medium text-ev-text-primary">
                   Pinger
                 </h3>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                <p className="text-xs text-ev-text-tertiary">
                   Event notifications
                 </p>
               </div>
@@ -88,17 +82,14 @@ export function QuickSettings({
             <Switch
               checked={optimisticPinger}
               onCheckedChange={handlePingerToggle}
-              disabled={pingerPending}
+              disabled={pingerAction.isPending}
             />
           </div>
 
-          <div
-            className="flex items-center gap-4 pt-3"
-            style={{ borderTop: '1px solid var(--border-subtle)' }}
-          >
+          <div className="flex items-center gap-4 pt-3 border-t border-ev-border-subtle">
             <div className="flex items-center gap-1.5">
-              <Timer className="size-3" style={{ color: 'var(--text-tertiary)' }} />
-              <span className="text-xs tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+              <Timer className="size-3 text-ev-text-tertiary" />
+              <span className="text-xs tabular-nums text-ev-text-secondary">
                 {pingerSettings?.cooldown_minutes ?? 0}m cooldown
               </span>
             </div>
@@ -108,28 +99,29 @@ export function QuickSettings({
 
       {/* Silently / Autostart Quick Card */}
       <div
-        className="glass-card group relative overflow-hidden"
-        style={{ opacity: silentlySettings ? 1 : 0.5 }}
+        className={`glass-card group relative overflow-hidden ${
+          !silentlySettings ? 'opacity-50' : ''
+        }`}
       >
         <div className="p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div
-                className="flex items-center justify-center size-8 rounded-lg transition-colors duration-300"
-                style={{
-                  backgroundColor: optimisticSilently ? 'rgba(48,209,88,0.08)' : 'var(--bg-tertiary)',
-                }}
+                className={`flex items-center justify-center size-8 rounded-lg transition-colors duration-300 ${
+                  optimisticSilently ? 'bg-ev-success/8' : 'bg-ev-tertiary'
+                }`}
               >
                 <Package
-                  className="size-4 transition-colors duration-300"
-                  style={{ color: optimisticSilently ? 'var(--success)' : 'var(--text-tertiary)' }}
+                  className={`size-4 transition-colors duration-300 ${
+                    optimisticSilently ? 'text-ev-success' : 'text-ev-text-tertiary'
+                  }`}
                 />
               </div>
               <div>
-                <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                <h3 className="text-sm font-medium text-ev-text-primary">
                   Autostart
                 </h3>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                <p className="text-xs text-ev-text-tertiary">
                   {silentlySettings ? 'Silently integration' : 'No API key configured'}
                 </p>
               </div>
@@ -138,25 +130,22 @@ export function QuickSettings({
             <Switch
               checked={optimisticSilently}
               onCheckedChange={handleSilentlyToggle}
-              disabled={!silentlySettings || silentlyPending}
+              disabled={!silentlySettings || autostartAction.isPending}
             />
           </div>
 
-          <div
-            className="flex items-center gap-4 pt-3"
-            style={{ borderTop: '1px solid var(--border-subtle)' }}
-          >
+          <div className="flex items-center gap-4 pt-3 border-t border-ev-border-subtle">
             <div className="flex items-center gap-1.5">
-              <Package className="size-3" style={{ color: 'var(--text-tertiary)' }} />
-              <span className="text-xs tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+              <Package className="size-3 text-ev-text-tertiary" />
+              <span className="text-xs tabular-nums text-ev-text-secondary">
                 Min stock: {silentlySettings?.min_stock ?? 0}
               </span>
             </div>
 
             {silentlySettings?.schedule_start && (
               <div className="flex items-center gap-1.5">
-                <Clock className="size-3" style={{ color: 'var(--text-tertiary)' }} />
-                <span className="text-xs tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                <Clock className="size-3 text-ev-text-tertiary" />
+                <span className="text-xs tabular-nums text-ev-text-secondary">
                   {formatTime(silentlySettings.schedule_start)}
                   {' - '}
                   {formatTime(silentlySettings.schedule_end)}

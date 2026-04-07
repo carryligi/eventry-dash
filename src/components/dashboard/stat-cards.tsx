@@ -56,18 +56,18 @@ export function StatCards(props: StatCardsProps) {
           >
             <div className="px-5 py-5">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] font-medium uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>
+                <span className="text-[11px] font-medium uppercase tracking-widest text-ev-text-tertiary">
                   {stat.label}
                 </span>
                 <div
-                  className="flex items-center justify-center size-7 rounded-lg"
-                  style={{
-                    backgroundColor: isActive ? 'rgba(48,209,88,0.08)' : 'var(--bg-tertiary)',
-                  }}
+                  className={`flex items-center justify-center size-7 rounded-lg ${
+                    isActive ? 'bg-ev-success/8' : 'bg-ev-tertiary'
+                  }`}
                 >
                   <Icon
-                    className="size-3.5"
-                    style={{ color: isActive ? 'var(--success)' : 'var(--text-tertiary)' }}
+                    className={`size-3.5 ${
+                      isActive ? 'text-ev-success' : 'text-ev-text-tertiary'
+                    }`}
                   />
                 </div>
               </div>
@@ -77,31 +77,30 @@ export function StatCards(props: StatCardsProps) {
                   <div className="flex items-center gap-2">
                     <span className="relative flex size-2">
                       {isActive && (
-                        <span
-                          className="absolute inset-0 rounded-full animate-ping"
-                          style={{ backgroundColor: 'var(--success)', opacity: 0.4 }}
-                        />
+                        <span className="absolute inset-0 rounded-full animate-ping bg-ev-success opacity-40" />
                       )}
                       <span
-                        className="relative inline-flex size-2 rounded-full"
-                        style={{ backgroundColor: isActive ? 'var(--success)' : 'var(--text-tertiary)' }}
+                        className={`relative inline-flex size-2 rounded-full ${
+                          isActive ? 'bg-ev-success' : 'bg-ev-text-tertiary'
+                        }`}
                       />
                     </span>
                     <span
-                      className="text-2xl font-medium tracking-tight"
-                      style={{ color: isActive ? 'var(--success)' : 'var(--text-primary)' }}
+                      className={`text-2xl font-medium tracking-tight ${
+                        isActive ? 'text-ev-success' : 'text-ev-text-primary'
+                      }`}
                     >
                       {value}
                     </span>
                   </div>
                 ) : (
-                  <span className="text-2xl font-medium tracking-tight tabular-nums" style={{ color: 'var(--text-primary)' }}>
+                  <span className="text-2xl font-medium tracking-tight tabular-nums text-ev-text-primary">
                     {value}
                   </span>
                 )}
               </div>
 
-              <p className="text-xs mt-1.5" style={{ color: 'var(--text-tertiary)' }}>
+              <p className="text-xs mt-1.5 text-ev-text-tertiary">
                 {subtext}
               </p>
             </div>

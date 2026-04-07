@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
 import { createServerClient } from '@/lib/supabase/server'
-import type { DiscordChannel, DiscordCategory, DiscordTextChannel, DiscordChannelsResponse } from '@/types'
+import type { DiscordCategory, DiscordTextChannel, DiscordChannelsResponse } from '@/types'
+
+interface DiscordChannel {
+  id: string
+  name: string
+  type: number
+  parent_id: string | null
+  position: number
+}
 
 const DISCORD_API = 'https://discord.com/api/v10'
 const TEXT_CHANNEL_TYPES = new Set([0, 2, 5]) // text, voice, announcement

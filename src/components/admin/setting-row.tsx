@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Pencil, Check, X, Eye, EyeOff } from 'lucide-react'
+import { Pencil, Check, X, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { updateAppSetting } from '@/lib/actions/admin'
+import { useAction } from '@/hooks/use-action'
 
 interface SettingRowProps {
   settingKey: string
@@ -24,41 +25,28 @@ export function SettingRow({
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(value)
   const [showValue, setShowValue] = useState(false)
-  const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
+
+  const { execute, isPending } = useAction(
+    async (newValue: string) => updateAppSetting(settingKey, newValue),
+    {
+      successMessage: 'Einstellung gespeichert',
+      onSuccess: () => setIsEditing(false),
+    },
+  )
 
   const displayValue = masked && !showValue
     ? value ? value.slice(0, 3) + '***' + value.slice(-3) : '(not set)'
     : value || '(not set)'
 
-  const handleSave = () => {
-    setError(null)
-    startTransition(async () => {
-      try {
-        await updateAppSetting(settingKey, editValue)
-        setIsEditing(false)
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to save')
-      }
-    })
-  }
-
   const handleCancel = () => {
     setEditValue(value)
     setIsEditing(false)
-    setError(null)
   }
 
   return (
-    <div
-      className="flex items-center justify-between gap-4 px-4 py-3"
-      style={{ borderBottom: '1px solid var(--border-subtle)' }}
-    >
+    <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-ev-border-subtle">
       <div className="min-w-0 flex-1">
-        <p
-          className="text-xs font-medium uppercase tracking-widest mb-1"
-          style={{ color: 'var(--text-tertiary)' }}
-        >
+        <p className="text-xs font-medium uppercase tracking-widest mb-1 text-ev-text-tertiary">
           {label}
         </p>
         {isEditing ? (
@@ -66,22 +54,21 @@ export function SettingRow({
             <Input
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
-              className="h-8 font-mono text-sm max-w-md"
-              style={{
-                backgroundColor: 'var(--bg-tertiary)',
-                borderColor: 'var(--border-default)',
-                color: 'var(--text-primary)',
-              }}
+              className="h-8 font-mono text-sm max-w-md bg-ev-tertiary border-ev-border-default text-ev-text-primary"
               autoFocus
             />
             <Button
               size="sm"
               variant="ghost"
-              onClick={handleSave}
+              onClick={() => execute(editValue)}
               disabled={isPending}
               className="size-8 p-0"
             >
-              <Check className="size-4" style={{ color: 'var(--success)' }} />
+              {isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Check className="size-4 text-ev-success" />
+              )}
             </Button>
             <Button
               size="sm"
@@ -90,36 +77,23 @@ export function SettingRow({
               disabled={isPending}
               className="size-8 p-0"
             >
-              <X className="size-4" style={{ color: 'var(--error)' }} />
+              <X className="size-4 text-ev-error" />
             </Button>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <span
-              className="text-sm font-mono"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <span className="text-sm font-mono text-ev-text-primary">
               {displayValue}
             </span>
             {masked && value && (
               <button
                 onClick={() => setShowValue(!showValue)}
-                className="flex items-center justify-center size-6 rounded-md transition-colors duration-200"
-                style={{ color: 'var(--text-tertiary)' }}
+                className="flex items-center justify-center size-6 rounded-md transition-colors text-ev-text-tertiary hover:text-ev-text-secondary"
               >
-                {showValue ? (
-                  <EyeOff className="size-3.5" />
-                ) : (
-                  <Eye className="size-3.5" />
-                )}
+                {showValue ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
               </button>
             )}
           </div>
-        )}
-        {error && (
-          <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>
-            {error}
-          </p>
         )}
       </div>
 

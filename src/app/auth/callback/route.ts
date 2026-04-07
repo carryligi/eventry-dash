@@ -52,7 +52,6 @@ export async function GET(request: Request) {
     const { error: profileError } = await supabase.from('profiles').upsert({
       id: userId,
       whop_user_id: whopUser.id,
-      discord_username: displayName,
       username: displayName,
       email: whopUser.email,
       avatar_url: whopUser.profile_pic_url,
@@ -64,17 +63,11 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${origin}/?error=profile_setup_failed`)
     }
 
-    // Initialize settings for new users
-    await Promise.all([
-      supabase.from('pinger_settings').upsert(
-        { user_id: userId, is_active: false, cooldown_minutes: 0 },
-        { onConflict: 'user_id', ignoreDuplicates: true }
-      ),
-      supabase.from('silently_settings').upsert(
-        { user_id: userId, is_active: false, min_stock: 0 },
-        { onConflict: 'user_id', ignoreDuplicates: true }
-      ),
-    ])
+    // Initialize pinger settings for new users (silently requires user_key, so it's created when user sets their key)
+    await supabase.from('pinger_settings').upsert(
+      { user_id: userId, is_active: false, cooldown_minutes: 0 },
+      { onConflict: 'user_id', ignoreDuplicates: true }
+    )
     console.log('[auth] Step 4: Profile + settings upserted')
 
     // 5. Create session

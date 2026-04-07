@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -21,44 +21,45 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus } from 'lucide-react'
+import { Plus, Loader2 } from 'lucide-react'
 import { addKeywords } from '@/lib/actions/keywords'
+import { useAction } from '@/hooks/use-action'
 import { DiscordChannelPicker } from './discord-channel-picker'
 
 export function AddKeywordDialog() {
   const [open, setOpen] = useState(false)
-  const [isPending, startTransition] = useTransition()
   const [scope, setScope] = useState<string>('global')
-  const [error, setError] = useState<string | null>(null)
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([])
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('')
 
+  const { execute, isPending, error } = useAction(addKeywords, {
+    successMessage: 'Keywords added',
+    onSuccess: () => {
+      setOpen(false)
+      setScope('global')
+      setSelectedChannelIds([])
+      setSelectedCategoryId('')
+    },
+  })
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setError(null)
     const form = e.currentTarget
     const formData = new FormData(form)
-    formData.set('restriction_type', scope)
 
-    // Set channel/category data from picker state
-    if (scope === 'channels' && selectedChannelIds.length > 0) {
-      formData.set('channel_ids', selectedChannelIds.join(','))
-    }
-    if (scope === 'category' && selectedCategoryId) {
-      formData.set('category_id', selectedCategoryId)
-    }
-
-    startTransition(async () => {
-      try {
-        await addKeywords(formData)
-        setOpen(false)
-        setScope('global')
-        setSelectedChannelIds([])
-        setSelectedCategoryId('')
-        form.reset()
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to add keywords')
-      }
+    execute({
+      keywords: formData.get('keywords') as string,
+      restriction_type: scope,
+      internal_name: formData.get('internal_name') as string,
+      max_price: formData.get('max_price') as string,
+      channel_ids:
+        scope === 'channels' && selectedChannelIds.length > 0
+          ? selectedChannelIds.join(',')
+          : undefined,
+      category_id:
+        scope === 'category' && selectedCategoryId
+          ? selectedCategoryId
+          : undefined,
     })
   }
 
@@ -86,7 +87,7 @@ export function AddKeywordDialog() {
           <div className="space-y-2">
             <Label htmlFor="kw-keywords">
               Keywords
-              <span className="text-xs ml-1" style={{ color: 'var(--text-tertiary)' }}>
+              <span className="text-xs ml-1 text-ev-text-tertiary">
                 (comma-separated)
               </span>
             </Label>
@@ -103,7 +104,7 @@ export function AddKeywordDialog() {
           <div className="space-y-2">
             <Label htmlFor="kw-name">
               Internal Name
-              <span className="text-xs ml-1" style={{ color: 'var(--text-tertiary)' }}>
+              <span className="text-xs ml-1 text-ev-text-tertiary">
                 (optional)
               </span>
             </Label>
@@ -117,7 +118,16 @@ export function AddKeywordDialog() {
           {/* Scope */}
           <div className="space-y-2">
             <Label>Scope</Label>
-            <Select value={scope} onValueChange={(v) => { if (v) { setScope(v); setSelectedChannelIds([]); setSelectedCategoryId('') } }}>
+            <Select
+              value={scope}
+              onValueChange={(v) => {
+                if (v) {
+                  setScope(v)
+                  setSelectedChannelIds([])
+                  setSelectedCategoryId('')
+                }
+              }}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select scope" />
               </SelectTrigger>
@@ -148,7 +158,9 @@ export function AddKeywordDialog() {
               <DiscordChannelPicker
                 mode="category"
                 selectedIds={selectedCategoryId ? [selectedCategoryId] : []}
-                onSelectionChange={(ids) => setSelectedCategoryId(ids[0] ?? '')}
+                onSelectionChange={(ids) =>
+                  setSelectedCategoryId(ids[0] ?? '')
+                }
               />
             </div>
           )}
@@ -157,7 +169,7 @@ export function AddKeywordDialog() {
           <div className="space-y-2">
             <Label htmlFor="kw-price">
               Max Price
-              <span className="text-xs ml-1" style={{ color: 'var(--text-tertiary)' }}>
+              <span className="text-xs ml-1 text-ev-text-tertiary">
                 (optional)
               </span>
             </Label>
@@ -172,14 +184,19 @@ export function AddKeywordDialog() {
           </div>
 
           {error && (
-            <p className="text-xs" style={{ color: 'var(--error)' }}>
-              {error}
-            </p>
+            <p className="text-xs text-ev-error">{error}</p>
           )}
 
           <DialogFooter>
             <Button type="submit" disabled={isPending}>
-              {isPending ? 'Adding...' : 'Add Keywords'}
+              {isPending ? (
+                <>
+                  <Loader2 className="size-3.5 mr-1 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                'Add Keywords'
+              )}
             </Button>
           </DialogFooter>
         </form>

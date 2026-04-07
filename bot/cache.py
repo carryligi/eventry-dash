@@ -146,75 +146,102 @@ class BotCache:
             logger.info(f"Subscribed to Realtime: {table}")
 
     def _on_keywords_change(self, payload):
-        event = payload.get("eventType") or payload.get("type", "")
-        record = payload.get("new") or payload.get("record", {})
-        old = payload.get("old", {})
+        try:
+            event = payload.get("eventType") or payload.get("type", "")
+            record = payload.get("new") or payload.get("record", {})
+            old = payload.get("old", {})
 
-        if event == "DELETE" and old.get("id"):
-            for uid, kws in self.keywords.items():
-                self.keywords[uid] = [k for k in kws if k.id != old["id"]]
-            logger.info(f"[RT] Keyword deleted: {old.get('id')}")
-        elif record:
-            kw = _row_to_keyword(record)
-            # Remove old version if exists
-            if kw.user_id in self.keywords:
-                self.keywords[kw.user_id] = [
-                    k for k in self.keywords[kw.user_id] if k.id != kw.id
-                ]
-            self.keywords[kw.user_id].append(kw)
-            logger.info(f"[RT] Keyword upserted: {kw.keyword} for {kw.user_id}")
+            if event == "DELETE" and old.get("id"):
+                for uid, kws in self.keywords.items():
+                    self.keywords[uid] = [k for k in kws if k.id != old["id"]]
+                logger.info(f"[RT] Keyword deleted: {old.get('id')}")
+            elif record:
+                kw = _row_to_keyword(record)
+                # Remove old version if exists
+                if kw.user_id in self.keywords:
+                    self.keywords[kw.user_id] = [
+                        k for k in self.keywords[kw.user_id] if k.id != kw.id
+                    ]
+                self.keywords[kw.user_id].append(kw)
+                logger.info(f"[RT] Keyword upserted: {kw.keyword} for {kw.user_id}")
+        except Exception as e:
+            logger.error(f"[RT] Error in _on_keywords_change: {e}")
 
     def _on_pinger_change(self, payload):
-        record = payload.get("new") or payload.get("record", {})
-        if record and "user_id" in record:
-            self.pinger[record["user_id"]] = _row_to_pinger(record)
-            logger.info(f"[RT] Pinger updated: {record['user_id']}")
+        try:
+            record = payload.get("new") or payload.get("record", {})
+            if record and "user_id" in record:
+                self.pinger[record["user_id"]] = _row_to_pinger(record)
+                logger.info(f"[RT] Pinger updated: {record['user_id']}")
+        except Exception as e:
+            logger.error(f"[RT] Error in _on_pinger_change: {e}")
 
     def _on_silently_change(self, payload):
-        record = payload.get("new") or payload.get("record", {})
-        if record and "user_id" in record:
-            self.silently[record["user_id"]] = _row_to_silently(record)
-            logger.info(f"[RT] Silently updated: {record['user_id']}")
+        try:
+            record = payload.get("new") or payload.get("record", {})
+            if record and "user_id" in record:
+                self.silently[record["user_id"]] = _row_to_silently(record)
+                logger.info(f"[RT] Silently updated: {record['user_id']}")
+        except Exception as e:
+            logger.error(f"[RT] Error in _on_silently_change: {e}")
 
     def _on_pushover_change(self, payload):
-        record = payload.get("new") or payload.get("record", {})
-        if record and "user_id" in record:
-            self.pushover[record["user_id"]] = _row_to_pushover(record)
-            logger.info(f"[RT] Pushover updated: {record['user_id']}")
+        try:
+            record = payload.get("new") or payload.get("record", {})
+            if record and "user_id" in record:
+                self.pushover[record["user_id"]] = _row_to_pushover(record)
+                logger.info(f"[RT] Pushover updated: {record['user_id']}")
+        except Exception as e:
+            logger.error(f"[RT] Error in _on_pushover_change: {e}")
 
     def _on_webhooks_change(self, payload):
-        record = payload.get("new") or payload.get("record", {})
-        if record and "user_id" in record:
-            self.webhooks[record["user_id"]] = _row_to_webhook(record)
-            logger.info(f"[RT] Webhook updated: {record['user_id']}")
+        try:
+            event = payload.get("eventType") or payload.get("type", "")
+            record = payload.get("new") or payload.get("record", {})
+            old = payload.get("old", {})
+
+            if event == "DELETE" and old.get("user_id"):
+                self.webhooks.pop(old["user_id"], None)
+                logger.info(f"[RT] Webhook deleted: {old['user_id']}")
+            elif record and "user_id" in record:
+                self.webhooks[record["user_id"]] = _row_to_webhook(record)
+                logger.info(f"[RT] Webhook updated: {record['user_id']}")
+        except Exception as e:
+            logger.error(f"[RT] Error in _on_webhooks_change: {e}")
 
     def _on_disabled_kw_change(self, payload):
-        event = payload.get("eventType") or payload.get("type", "")
-        record = payload.get("new") or payload.get("record", {})
-        old = payload.get("old", {})
+        try:
+            event = payload.get("eventType") or payload.get("type", "")
+            record = payload.get("new") or payload.get("record", {})
+            old = payload.get("old", {})
 
-        if event == "DELETE" and old:
-            uid = old.get("user_id", "")
-            kw = old.get("keyword", "")
-            self.disabled_keywords[uid].discard(kw)
-            logger.info(f"[RT] Disabled keyword removed: {kw} for {uid}")
-        elif record:
-            uid = record["user_id"]
-            kw = record["keyword"]
-            self.disabled_keywords[uid].add(kw)
-            logger.info(f"[RT] Disabled keyword added: {kw} for {uid}")
+            if event == "DELETE" and old:
+                uid = old.get("user_id", "")
+                kw = old.get("keyword", "")
+                self.disabled_keywords[uid].discard(kw)
+                logger.info(f"[RT] Disabled keyword removed: {kw} for {uid}")
+            elif record:
+                uid = record["user_id"]
+                kw = record["keyword"]
+                self.disabled_keywords[uid].add(kw)
+                logger.info(f"[RT] Disabled keyword added: {kw} for {uid}")
+        except Exception as e:
+            logger.error(f"[RT] Error in _on_disabled_kw_change: {e}")
 
     def _on_app_settings_change(self, payload):
-        record = payload.get("new") or payload.get("record", {})
-        if record:
-            key, val = record.get("key", ""), record.get("value", "")
-            if key == "silently_api_key":
-                self.app.silently_api_key = val
-            elif key == "pushover_app_key":
-                self.app.pushover_app_key = val
-            elif key == "guild_id":
-                self.app.guild_id = val
-            logger.info(f"[RT] App setting updated: {key}")
+        try:
+            record = payload.get("new") or payload.get("record", {})
+            if record:
+                key, val = record.get("key", ""), record.get("value", "")
+                if key == "silently_api_key":
+                    self.app.silently_api_key = val
+                elif key == "pushover_app_key":
+                    self.app.pushover_app_key = val
+                elif key == "guild_id":
+                    self.app.guild_id = val
+                logger.info(f"[RT] App setting updated: {key}")
+        except Exception as e:
+            logger.error(f"[RT] Error in _on_app_settings_change: {e}")
 
     # ── Cooldown helpers ─────────────────────────────────────────────────
 

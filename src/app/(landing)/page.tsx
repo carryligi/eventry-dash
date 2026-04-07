@@ -15,7 +15,7 @@ export default async function LandingPage() {
   }
 
   return (
-    <div className="min-h-svh" style={{ backgroundColor: 'var(--bg-root)' }}>
+    <div className="min-h-svh bg-ev-root">
       <Navbar />
       <Hero />
       <Features />

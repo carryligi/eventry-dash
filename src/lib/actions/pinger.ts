@@ -3,44 +3,53 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import { cooldownSchema } from '@/lib/validations'
+import type { ActionResult } from '@/types'
 
-async function ensurePingerRow(supabase: Awaited<ReturnType<typeof createServerClient>>, userId: string) {
-  const { data } = await supabase
-    .from('pinger_settings')
-    .select('user_id')
-    .eq('user_id', userId)
-    .maybeSingle()
-  if (!data) {
-    const { error } = await supabase.from('pinger_settings').insert({
-      user_id: userId,
-      is_active: false,
-      cooldown_minutes: 0,
-    })
-    if (error) throw new Error(error.message)
+export async function togglePinger(isActive: boolean): Promise<ActionResult> {
+  try {
+    const profile = await getCurrentUser()
+    const supabase = await createServerClient()
+
+    // Upsert: creates row if missing, updates if exists (no race condition)
+    const { error } = await supabase
+      .from('pinger_settings')
+      .upsert(
+        { user_id: profile.id, is_active: isActive },
+        { onConflict: 'user_id', ignoreDuplicates: false },
+      )
+    if (error) return { success: false, error: error.message }
+
+    revalidatePath('/dashboard')
+    revalidatePath('/dashboard/settings')
+    return { success: true, data: undefined }
+  } catch {
+    return { success: false, error: 'Fehler beim Aendern des Pinger-Status' }
   }
 }
 
-export async function togglePinger(isActive: boolean) {
-  const profile = await getCurrentUser()
-  const supabase = await createServerClient()
-  await ensurePingerRow(supabase, profile.id)
-  const { error } = await supabase
-    .from('pinger_settings')
-    .update({ is_active: isActive })
-    .eq('user_id', profile.id)
-  if (error) throw new Error(error.message)
-  revalidatePath('/dashboard')
-}
+export async function updateCooldown(minutes: number): Promise<ActionResult> {
+  try {
+    const profile = await getCurrentUser()
 
-export async function updateCooldown(minutes: number) {
-  const profile = await getCurrentUser()
-  const supabase = await createServerClient()
-  await ensurePingerRow(supabase, profile.id)
-  const { error } = await supabase
-    .from('pinger_settings')
-    .update({ cooldown_minutes: minutes })
-    .eq('user_id', profile.id)
-  if (error) throw new Error(error.message)
-  revalidatePath('/dashboard')
-  revalidatePath('/dashboard/settings')
+    const parsed = cooldownSchema.safeParse({ cooldown_minutes: minutes })
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message }
+    }
+
+    const supabase = await createServerClient()
+    const { error } = await supabase
+      .from('pinger_settings')
+      .upsert(
+        { user_id: profile.id, cooldown_minutes: parsed.data.cooldown_minutes },
+        { onConflict: 'user_id', ignoreDuplicates: false },
+      )
+    if (error) return { success: false, error: error.message }
+
+    revalidatePath('/dashboard')
+    revalidatePath('/dashboard/settings')
+    return { success: true, data: undefined }
+  } catch {
+    return { success: false, error: 'Fehler beim Aendern des Cooldowns' }
+  }
 }

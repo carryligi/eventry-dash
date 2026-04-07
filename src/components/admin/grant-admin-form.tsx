@@ -1,94 +1,46 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Shield, Plus } from 'lucide-react'
+import { Shield, Loader2 } from 'lucide-react'
 import { grantAdmin } from '@/lib/actions/admin'
+import { useAction } from '@/hooks/use-action'
 
 export function GrantAdminForm() {
   const [userId, setUserId] = useState('')
-  const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
+
+  const { execute, isPending } = useAction(grantAdmin, {
+    successMessage: 'Admin-Rechte erteilt',
+    onSuccess: () => setUserId(''),
+  })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!userId.trim()) return
-
-    setError(null)
-    setSuccess(false)
-
-    startTransition(async () => {
-      try {
-        await grantAdmin(userId.trim())
-        setSuccess(true)
-        setUserId('')
-        setTimeout(() => setSuccess(false), 3000)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to grant admin')
-      }
-    })
+    execute(userId.trim())
   }
 
   return (
-    <div className="glass-card relative rounded-xl overflow-hidden">
-      <div
-        className="absolute top-0 left-0 right-0 h-px"
-        style={{
-          background:
-            'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 100%)',
-        }}
-      />
-      <div
-        className="px-4 py-3 flex items-center gap-2"
-        style={{ borderBottom: '1px solid var(--border-subtle)' }}
-      >
-        <Plus className="size-4" style={{ color: 'var(--text-tertiary)' }} />
-        <h3
-          className="text-sm font-medium"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          Add Admin
-        </h3>
+    <div className="glass-card rounded-xl overflow-hidden">
+      <div className="px-4 py-3 flex items-center gap-2 border-b border-ev-border-subtle">
+        <Shield className="size-4 text-ev-text-tertiary" />
+        <h3 className="text-sm font-medium text-ev-text-primary">Add Admin</h3>
       </div>
       <form onSubmit={handleSubmit} className="p-4 space-y-3">
         <div className="space-y-1.5">
-          <Label
-            htmlFor="userId"
-            className="text-xs uppercase tracking-widest"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
-            Discord User ID
+          <Label htmlFor="userId" className="text-xs uppercase tracking-widest text-ev-text-tertiary">
+            User ID
           </Label>
           <Input
             id="userId"
-            placeholder="e.g. 123456789012345678"
+            placeholder="e.g. user_xxxxx"
             value={userId}
-            onChange={(e) => {
-              setUserId(e.target.value)
-              setError(null)
-            }}
-            className="h-9 font-mono"
-            style={{
-              backgroundColor: 'var(--bg-tertiary)',
-              borderColor: 'var(--border-default)',
-              color: 'var(--text-primary)',
-            }}
+            onChange={(e) => setUserId(e.target.value)}
+            className="h-9 font-mono bg-ev-tertiary border-ev-border-default text-ev-text-primary"
           />
         </div>
-
-        {error && (
-          <p className="text-xs" style={{ color: 'var(--error)' }}>
-            {error}
-          </p>
-        )}
-        {success && (
-          <p className="text-xs" style={{ color: 'var(--success)' }}>
-            Admin privileges granted successfully.
-          </p>
-        )}
 
         <Button
           type="submit"
@@ -96,7 +48,11 @@ export function GrantAdminForm() {
           disabled={isPending || !userId.trim()}
           className="gap-1.5"
         >
-          <Shield className="size-3.5" />
+          {isPending ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Shield className="size-3.5" />
+          )}
           {isPending ? 'Granting...' : 'Grant Admin'}
         </Button>
       </form>

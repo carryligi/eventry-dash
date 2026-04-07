@@ -7,7 +7,7 @@ import asyncio
 import logging
 import re
 from collections import defaultdict
-from datetime import datetime, timedelta, time as dtime
+from datetime import datetime, timedelta, time as dtime, timezone
 
 import discord
 import pytz
@@ -276,7 +276,7 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                     dm_embed = discord.Embed(
                         title="Keyword Match Found",
                         color=0xADADAD,
-                        timestamp=datetime.utcnow(),
+                        timestamp=datetime.now(timezone.utc),
                     )
                     dm_embed.add_field(name="Keyword", value=f'"{keyword}"', inline=False)
                     dm_embed.add_field(name="User", value=user.mention, inline=False)

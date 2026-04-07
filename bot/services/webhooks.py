@@ -4,7 +4,7 @@ Discord webhook notifications for autostart events.
 
 import logging
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytz
 import requests
@@ -43,11 +43,12 @@ def send_autostart_webhook(
     status_text = f"✅ {http_status} OK" if http_status == 200 else f"❌ {http_status} Failed"
 
     payload = {
+        "username": "Eventry",
         "embeds": [
             {
                 "title": "🚀 Autostart Triggered",
                 "color": 0xADADAD,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "fields": [
                     {"name": "Keyword", "value": f"`{keyword}`", "inline": True},
                     {"name": "Status", "value": status_text, "inline": True},

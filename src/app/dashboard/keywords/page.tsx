@@ -29,7 +29,7 @@ export default async function KeywordsPage() {
       <TopBar title="Keywords" />
       <div className="p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <p style={{ color: 'var(--text-secondary)' }}>
+          <p className="text-ev-text-secondary text-sm">
             {keywords?.length ?? 0} keyword
             {(keywords?.length ?? 0) !== 1 ? 's' : ''} configured
           </p>
