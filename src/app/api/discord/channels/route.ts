@@ -3,17 +3,93 @@ import { getSession } from '@/lib/session'
 import { createServerClient } from '@/lib/supabase/server'
 import type { DiscordCategory, DiscordTextChannel, DiscordChannelsResponse } from '@/types'
 
+interface PermissionOverwrite {
+  id: string
+  type: number // 0 = role, 1 = member
+  allow: string
+  deny: string
+}
+
 interface DiscordChannel {
   id: string
   name: string
   type: number
   parent_id: string | null
   position: number
+  permission_overwrites?: PermissionOverwrite[]
+}
+
+interface DiscordRole {
+  id: string
+  permissions: string
 }
 
 const DISCORD_API = 'https://discord.com/api/v10'
 const TEXT_CHANNEL_TYPES = new Set([0, 2, 5]) // text, voice, announcement
 const CATEGORY_TYPE = 4
+const VIEW_CHANNEL = BigInt(1 << 10) // 0x400
+const ADMINISTRATOR = BigInt(1 << 3) // 0x8
+
+/**
+ * Compute effective permissions for the bot on a specific channel.
+ * Follows Discord's layered permission model:
+ * 1. @everyone server-wide permissions
+ * 2. @everyone channel overwrites
+ * 3. Bot's roles server-wide permissions (OR'd together)
+ * 4. Bot's roles channel overwrites (deny OR'd, then allow OR'd)
+ */
+function computePermissions(
+  channel: DiscordChannel,
+  guildId: string,
+  botRoleIds: string[],
+  rolePermsMap: Map<string, bigint>,
+): bigint {
+  // 1. Start with @everyone server-wide permissions
+  let permissions = rolePermsMap.get(guildId) ?? BigInt(0)
+
+  // Admin override — skip channel overwrites
+  if ((permissions & ADMINISTRATOR) !== BigInt(0)) return permissions
+
+  // 2. Apply @everyone channel overwrites
+  const everyoneOw = channel.permission_overwrites?.find((o) => o.id === guildId && o.type === 0)
+  if (everyoneOw) {
+    permissions &= ~BigInt(everyoneOw.deny)
+    permissions |= BigInt(everyoneOw.allow)
+  }
+
+  // 3. OR in bot's roles server-wide permissions
+  for (const roleId of botRoleIds) {
+    permissions |= rolePermsMap.get(roleId) ?? BigInt(0)
+  }
+
+  // Admin override after role merge
+  if ((permissions & ADMINISTRATOR) !== BigInt(0)) return permissions
+
+  // 4. Apply bot's roles channel overwrites
+  let roleDeny = BigInt(0)
+  let roleAllow = BigInt(0)
+  for (const roleId of botRoleIds) {
+    const ow = channel.permission_overwrites?.find((o) => o.id === roleId && o.type === 0)
+    if (ow) {
+      roleDeny |= BigInt(ow.deny)
+      roleAllow |= BigInt(ow.allow)
+    }
+  }
+  permissions &= ~roleDeny
+  permissions |= roleAllow
+
+  return permissions
+}
+
+function botCanView(
+  channel: DiscordChannel,
+  guildId: string,
+  botRoleIds: string[],
+  rolePermsMap: Map<string, bigint>,
+): boolean {
+  const perms = computePermissions(channel, guildId, botRoleIds, rolePermsMap)
+  return (perms & VIEW_CHANNEL) !== BigInt(0)
+}
 
 export async function GET() {
   const session = await getSession()
@@ -71,11 +147,39 @@ export async function GET() {
 
   const rawChannels: DiscordChannel[] = await res.json()
 
-  // Separate categories and channels
+  // Fetch bot's own roles and guild roles in parallel
+  const [memberRes, rolesRes] = await Promise.all([
+    fetch(`${DISCORD_API}/guilds/${guildId}/members/@me`, {
+      headers: { Authorization: `Bot ${botToken}` },
+    }),
+    fetch(`${DISCORD_API}/guilds/${guildId}/roles`, {
+      headers: { Authorization: `Bot ${botToken}` },
+    }),
+  ])
+
+  let botRoleIds: string[] = []
+  const rolePermsMap = new Map<string, bigint>()
+
+  if (memberRes.ok) {
+    const botMember = await memberRes.json()
+    botRoleIds = botMember.roles ?? []
+  }
+
+  if (rolesRes.ok) {
+    const guildRoles: DiscordRole[] = await rolesRes.json()
+    for (const role of guildRoles) {
+      rolePermsMap.set(role.id, BigInt(role.permissions))
+    }
+  }
+
+  // Separate categories and channels, filtering by bot's effective permissions
   const categoryMap = new Map<string, DiscordCategory>()
   const textChannels: DiscordTextChannel[] = []
 
   for (const ch of rawChannels) {
+    // Skip channels the bot cannot view
+    if (rolePermsMap.size > 0 && !botCanView(ch, guildId, botRoleIds, rolePermsMap)) continue
+
     if (ch.type === CATEGORY_TYPE) {
       categoryMap.set(ch.id, {
         id: ch.id,
