@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { appSettingSchema } from '@/lib/validations'
+import { handleActionError } from '@/lib/action-utils'
 import type { ActionResult } from '@/types'
 
 function revalidateAdmin() {
@@ -32,8 +33,8 @@ export async function grantAdmin(userId: string): Promise<ActionResult> {
 
     revalidateAdmin()
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Erteilen der Admin-Rechte' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Erteilen der Admin-Rechte') }
   }
 }
 
@@ -53,8 +54,8 @@ export async function revokeAdmin(userId: string): Promise<ActionResult> {
 
     revalidateAdmin()
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Entziehen der Admin-Rechte' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Entziehen der Admin-Rechte') }
   }
 }
 
@@ -76,7 +77,7 @@ export async function updateAppSetting(key: string, value: string): Promise<Acti
 
     revalidatePath('/dashboard/admin/settings')
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Speichern der Einstellung' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Speichern der Einstellung') }
   }
 }

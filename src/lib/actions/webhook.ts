@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { webhookUrlSchema } from '@/lib/validations'
+import { handleActionError } from '@/lib/action-utils'
 import type { ActionResult } from '@/types'
 
 function revalidateNotifications() {
@@ -29,8 +30,8 @@ export async function setWebhookUrl(url: string): Promise<ActionResult> {
 
     revalidateNotifications()
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Speichern der Webhook URL' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Speichern der Webhook URL') }
   }
 }
 
@@ -46,8 +47,8 @@ export async function removeWebhookUrl(): Promise<ActionResult> {
 
     revalidateNotifications()
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Entfernen der Webhook URL' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Entfernen der Webhook URL') }
   }
 }
 
@@ -63,8 +64,8 @@ export async function toggleWebhook(isActive: boolean): Promise<ActionResult> {
 
     revalidateNotifications()
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Aendern des Webhook-Status' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Aendern des Webhook-Status') }
   }
 }
 

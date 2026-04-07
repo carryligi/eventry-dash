@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { cooldownSchema } from '@/lib/validations'
+import { handleActionError } from '@/lib/action-utils'
 import type { ActionResult } from '@/types'
 
 export async function togglePinger(isActive: boolean): Promise<ActionResult> {
@@ -11,7 +12,6 @@ export async function togglePinger(isActive: boolean): Promise<ActionResult> {
     const profile = await getCurrentUser()
     const supabase = await createServerClient()
 
-    // Upsert: creates row if missing, updates if exists (no race condition)
     const { error } = await supabase
       .from('pinger_settings')
       .upsert(
@@ -23,8 +23,8 @@ export async function togglePinger(isActive: boolean): Promise<ActionResult> {
     revalidatePath('/dashboard')
     revalidatePath('/dashboard/settings')
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Aendern des Pinger-Status' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Aendern des Pinger-Status') }
   }
 }
 
@@ -49,7 +49,7 @@ export async function updateCooldown(minutes: number): Promise<ActionResult> {
     revalidatePath('/dashboard')
     revalidatePath('/dashboard/settings')
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Aendern des Cooldowns' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Aendern des Cooldowns') }
   }
 }

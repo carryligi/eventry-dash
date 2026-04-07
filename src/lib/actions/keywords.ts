@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { addKeywordsSchema } from '@/lib/validations'
+import { handleActionError } from '@/lib/action-utils'
 import type { ActionResult } from '@/types'
 
 export async function addKeywords(input: {
@@ -55,8 +56,8 @@ export async function addKeywords(input: {
     revalidatePath('/dashboard/autostart')
     revalidatePath('/dashboard')
     return { success: true, data: { count: keywordList.length } }
-  } catch {
-    return { success: false, error: 'Fehler beim Hinzufuegen der Keywords' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Hinzufuegen der Keywords') }
   }
 }
 
@@ -77,8 +78,8 @@ export async function deleteKeywords(ids: string[]): Promise<ActionResult> {
     revalidatePath('/dashboard/autostart')
     revalidatePath('/dashboard')
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Loeschen der Keywords' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Loeschen der Keywords') }
   }
 }
 
@@ -96,8 +97,8 @@ export async function updateKeywordName(id: string, internalName: string): Promi
     revalidatePath('/dashboard/keywords')
     revalidatePath('/dashboard')
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Umbenennen' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Umbenennen') }
   }
 }
 
@@ -116,7 +117,7 @@ export async function removeAllKeywords(): Promise<ActionResult> {
     revalidatePath('/dashboard/settings')
     revalidatePath('/dashboard')
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Loeschen aller Keywords' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Loeschen aller Keywords') }
   }
 }

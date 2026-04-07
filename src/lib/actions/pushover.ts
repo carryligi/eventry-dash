@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { pushoverKeySchema } from '@/lib/validations'
+import { handleActionError } from '@/lib/action-utils'
 import type { ActionResult } from '@/types'
 
 function revalidateNotifications() {
@@ -20,7 +21,6 @@ export async function setPushoverKey(key: string, priority: number = 0): Promise
 
     const supabase = await createServerClient()
 
-    // Check if row exists to preserve priority when only updating key
     const { data: existing } = await supabase
       .from('pushover_settings')
       .select('user_id')
@@ -44,8 +44,8 @@ export async function setPushoverKey(key: string, priority: number = 0): Promise
 
     revalidateNotifications()
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Speichern des Pushover Keys' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Speichern des Pushover Keys') }
   }
 }
 
@@ -61,8 +61,8 @@ export async function removePushoverKey(): Promise<ActionResult> {
 
     revalidateNotifications()
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Entfernen des Pushover Keys' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Entfernen des Pushover Keys') }
   }
 }
 
@@ -83,7 +83,7 @@ export async function updatePriority(priority: number): Promise<ActionResult> {
 
     revalidateNotifications()
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Aendern der Prioritaet' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Aendern der Prioritaet') }
   }
 }

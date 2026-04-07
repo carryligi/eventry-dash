@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { silentlyKeySchema, minStockSchema, scheduleSchema } from '@/lib/validations'
+import { handleActionError } from '@/lib/action-utils'
 import type { ActionResult } from '@/types'
 
 function revalidateAutostart() {
@@ -20,7 +21,6 @@ export async function setSilentlyKey(key: string): Promise<ActionResult> {
 
     const supabase = await createServerClient()
 
-    // Check if row exists to preserve existing settings
     const { data: existing } = await supabase
       .from('silently_settings')
       .select('user_id')
@@ -45,8 +45,8 @@ export async function setSilentlyKey(key: string): Promise<ActionResult> {
 
     revalidateAutostart()
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Speichern des Silently Keys' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Speichern des Silently Keys') }
   }
 }
 
@@ -62,8 +62,8 @@ export async function removeSilentlyKey(): Promise<ActionResult> {
 
     revalidateAutostart()
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Entfernen des Silently Keys' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Entfernen des Silently Keys') }
   }
 }
 
@@ -79,8 +79,8 @@ export async function toggleAutostart(isActive: boolean): Promise<ActionResult> 
 
     revalidateAutostart()
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Aendern des Autostart-Status' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Aendern des Autostart-Status') }
   }
 }
 
@@ -100,8 +100,8 @@ export async function updateMinStock(minStock: number): Promise<ActionResult> {
 
     revalidateAutostart()
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Aendern des Min Stock' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Aendern des Min Stock') }
   }
 }
 
@@ -127,8 +127,8 @@ export async function updateSchedule(
 
     revalidateAutostart()
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Aendern des Zeitplans' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Aendern des Zeitplans') }
   }
 }
 
@@ -141,7 +141,6 @@ export async function toggleKeywordAutostart(
     const supabase = await createServerClient()
 
     if (enabled) {
-      // Remove from disabled list
       const { error } = await supabase
         .from('autostart_disabled_keywords')
         .delete()
@@ -149,7 +148,6 @@ export async function toggleKeywordAutostart(
         .eq('keyword', keyword)
       if (error) return { success: false, error: error.message }
     } else {
-      // Add to disabled list
       const { error } = await supabase
         .from('autostart_disabled_keywords')
         .upsert(
@@ -161,7 +159,7 @@ export async function toggleKeywordAutostart(
 
     revalidatePath('/dashboard/autostart')
     return { success: true, data: undefined }
-  } catch {
-    return { success: false, error: 'Fehler beim Aendern des Keyword-Autostart' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Aendern des Keyword-Autostart') }
   }
 }

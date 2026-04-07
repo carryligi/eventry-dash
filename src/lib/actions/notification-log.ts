@@ -2,6 +2,7 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { handleActionError } from '@/lib/action-utils'
 import type { ActionResult, NotificationLog } from '@/types'
 
 interface LogsData {
@@ -42,7 +43,7 @@ export async function fetchNotificationLogs(
         totalCount: count ?? 0,
       },
     }
-  } catch {
-    return { success: false, error: 'Fehler beim Laden der Logs' }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Fehler beim Laden der Logs') }
   }
 }
