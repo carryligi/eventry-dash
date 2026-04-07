@@ -3,37 +3,17 @@ import { getSession } from '@/lib/session'
 import { createServerClient } from '@/lib/supabase/server'
 import type { DiscordCategory, DiscordTextChannel, DiscordChannelsResponse } from '@/types'
 
-interface PermissionOverwrite {
-  id: string
-  type: number // 0 = role, 1 = member
-  allow: string
-  deny: string
-}
-
 interface DiscordChannel {
   id: string
   name: string
   type: number
   parent_id: string | null
   position: number
-  permission_overwrites?: PermissionOverwrite[]
 }
 
 const DISCORD_API = 'https://discord.com/api/v10'
 const TEXT_CHANNEL_TYPES = new Set([0, 2, 5]) // text, voice, announcement
 const CATEGORY_TYPE = 4
-const VIEW_CHANNEL = BigInt(1 << 10) // 0x400
-
-/** Check if @everyone is denied VIEW_CHANNEL on this channel */
-function isHiddenFromMembers(channel: DiscordChannel, guildId: string): boolean {
-  if (!channel.permission_overwrites) return false
-  // @everyone role ID === guild ID
-  const everyoneOverwrite = channel.permission_overwrites.find(
-    (o) => o.id === guildId && o.type === 0
-  )
-  if (!everyoneOverwrite) return false
-  return (BigInt(everyoneOverwrite.deny) & VIEW_CHANNEL) !== BigInt(0)
-}
 
 export async function GET() {
   const session = await getSession()
@@ -96,9 +76,6 @@ export async function GET() {
   const textChannels: DiscordTextChannel[] = []
 
   for (const ch of rawChannels) {
-    // Skip channels hidden from @everyone (admin-only channels)
-    if (isHiddenFromMembers(ch, guildId)) continue
-
     if (ch.type === CATEGORY_TYPE) {
       categoryMap.set(ch.id, {
         id: ch.id,
