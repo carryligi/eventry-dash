@@ -49,6 +49,15 @@ export async function GET(request: Request) {
     const userId = whopUser.id
 
     const displayName = whopUser.username || whopUser.email?.split('@')[0] || 'User'
+    const isWhopAdmin = access.access_level === 'admin'
+
+    // Check if profile already exists to preserve manually-set is_admin
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', userId)
+      .maybeSingle()
+
     const { error: profileError } = await supabase.from('profiles').upsert({
       id: userId,
       whop_user_id: whopUser.id,
@@ -56,6 +65,8 @@ export async function GET(request: Request) {
       email: whopUser.email,
       avatar_url: whopUser.profile_pic_url,
       membership_status: 'active',
+      // Grant admin if Whop says admin OR if already admin in DB
+      is_admin: isWhopAdmin || (existingProfile?.is_admin ?? false),
     }, { onConflict: 'id' })
 
     if (profileError) {

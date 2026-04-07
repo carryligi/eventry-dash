@@ -2,15 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Hash, Volume2, Megaphone, ChevronDown, X, Search, Loader2, AlertCircle } from 'lucide-react'
 import type { DiscordChannelsResponse, DiscordTextChannel } from '@/types'
 
@@ -65,10 +56,10 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
 
   // Fetch when dropdown opens
   useEffect(() => {
-    if (open && !data && !loading) {
+    if (open && !data && !loading && !error) {
       fetchChannels()
     }
-  }, [open, data, loading, fetchChannels])
+  }, [open, data, loading, error, fetchChannels])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -91,69 +82,33 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
     .map((id) => allChannels.find((ch) => ch.id === id))
     .filter(Boolean) as DiscordTextChannel[]
 
-  // Category mode -- use existing Select components
-  if (mode === 'category') {
-    return (
-      <div className="space-y-2">
-        <Select
-          value={selectedIds[0] ?? ''}
-          onValueChange={(v) => onSelectionChange(v ? [v] : [])}
-          onOpenChange={(isOpen) => {
-            if (isOpen) fetchChannels()
-          }}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={loading ? 'Loading...' : 'Select category'} />
-          </SelectTrigger>
-          <SelectContent>
-            {error && (
-              <div className="px-3 py-2 text-xs text-ev-error">
-                {error}
-              </div>
-            )}
-            {data && data.categories.length === 0 && (
-              <div className="px-3 py-2 text-xs text-ev-text-tertiary">
-                No categories found
-              </div>
-            )}
-            {data && (
-              <SelectGroup>
-                <SelectLabel>Categories</SelectLabel>
-                {data.categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            )}
-          </SelectContent>
-        </Select>
-        {/* Manual fallback */}
-        {error && (
-          <Input
-            placeholder="Or enter category ID manually"
-            value={selectedIds[0] ?? ''}
-            onChange={(e) => onSelectionChange(e.target.value ? [e.target.value] : [])}
-            className="text-sm"
-          />
-        )}
-      </div>
-    )
-  }
+  // Search filtering (shared)
+  const searchLower = search.toLowerCase()
 
-  // Channels mode -- custom multi-select
   const filteredCategories = data?.categories
-    .map((cat) => ({
-      ...cat,
-      channels: cat.channels.filter((ch) =>
-        ch.name.toLowerCase().includes(search.toLowerCase()),
-      ),
-    }))
+    .map((cat) => {
+      const categoryMatches = searchLower && cat.name.toLowerCase().includes(searchLower)
+      return {
+        ...cat,
+        channels: categoryMatches
+          ? cat.channels // show all channels if category name matches
+          : cat.channels.filter((ch) =>
+              ch.name.toLowerCase().includes(searchLower),
+            ),
+      }
+    })
     .filter((cat) => cat.channels.length > 0) ?? []
 
   const filteredUncategorized = data?.uncategorized.filter((ch) =>
-    ch.name.toLowerCase().includes(search.toLowerCase()),
+    ch.name.toLowerCase().includes(searchLower),
   ) ?? []
+
+  // For category mode: filter categories themselves
+  const filteredCategoryList = data?.categories.filter((cat) =>
+    cat.name.toLowerCase().includes(searchLower),
+  ) ?? []
+
+  const selectedCategory = data?.categories.find((cat) => cat.id === selectedIds[0])
 
   const toggleChannel = (id: string) => {
     if (selectedIds.includes(id)) {
@@ -167,6 +122,124 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
     onSelectionChange(selectedIds.filter((s) => s !== id))
   }
 
+  // Category mode -- custom searchable single-select
+  if (mode === 'category') {
+    return (
+      <div className="space-y-2" ref={dropdownRef}>
+        {/* Trigger button */}
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className={`flex w-full items-center justify-between gap-1.5 rounded-lg border border-ev-border-default bg-white/[0.03] py-2 px-2.5 text-sm transition-colors outline-none ${
+            selectedCategory ? 'text-ev-text-primary' : 'text-ev-text-tertiary'
+          }`}
+        >
+          <span className="truncate">
+            {selectedCategory ? selectedCategory.name : 'Select category...'}
+          </span>
+          <ChevronDown
+            className={`size-4 flex-shrink-0 text-ev-text-tertiary transition-transform duration-200 ${
+              open ? 'rotate-180' : 'rotate-0'
+            }`}
+          />
+        </button>
+
+        {/* Dropdown */}
+        {open && (
+          <div className="rounded-lg border border-ev-border-default bg-ev-secondary shadow-lg overflow-hidden">
+            {/* Search */}
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-ev-border-subtle">
+              <Search className="size-3.5 flex-shrink-0 text-ev-text-tertiary" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search categories..."
+                className="flex-1 bg-transparent text-sm text-ev-text-primary outline-none placeholder:text-muted-foreground"
+                autoFocus
+              />
+            </div>
+
+            <div className="max-h-56 overflow-y-auto">
+              {loading && (
+                <div className="flex items-center justify-center gap-2 py-6">
+                  <Loader2 className="size-4 animate-spin text-ev-text-tertiary" />
+                  <span className="text-xs text-ev-text-tertiary">Loading categories...</span>
+                </div>
+              )}
+
+              {error && (
+                <div className="flex flex-col items-center gap-2 py-6 px-4">
+                  <AlertCircle className="size-4 text-ev-error" />
+                  <span className="text-xs text-center text-ev-error">{error}</span>
+                  <button
+                    type="button"
+                    onClick={() => { cacheRef.current = null; fetchChannels() }}
+                    className="text-xs underline text-ev-text-accent"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {data && filteredCategoryList.length === 0 && (
+                <div className="py-6 text-center">
+                  <span className="text-xs text-ev-text-tertiary">
+                    {search ? 'No categories match your search' : 'No categories found'}
+                  </span>
+                </div>
+              )}
+
+              {filteredCategoryList.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    onSelectionChange([cat.id])
+                    setOpen(false)
+                    setSearch('')
+                  }}
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors duration-150 hover:bg-white/[0.03] ${
+                    selectedIds[0] === cat.id
+                      ? 'text-ev-text-primary bg-white/[0.04]'
+                      : 'text-ev-text-secondary'
+                  }`}
+                >
+                  <div
+                    className={`flex items-center justify-center size-4 rounded-full border flex-shrink-0 transition-colors ${
+                      selectedIds[0] === cat.id
+                        ? 'border-ev-text-accent bg-ev-text-accent'
+                        : 'border-ev-border-default bg-transparent'
+                    }`}
+                  >
+                    {selectedIds[0] === cat.id && (
+                      <div className="size-1.5 rounded-full bg-white" />
+                    )}
+                  </div>
+                  <span className="truncate">{cat.name}</span>
+                  <span className="ml-auto text-xs text-ev-text-tertiary">
+                    {cat.channels.length} ch.
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Manual fallback when API fails */}
+        {error && !open && (
+          <Input
+            placeholder="Or enter category ID manually"
+            value={selectedIds[0] ?? ''}
+            onChange={(e) => onSelectionChange(e.target.value ? [e.target.value] : [])}
+            className="text-sm"
+          />
+        )}
+      </div>
+    )
+  }
+
+  // Channels mode -- custom multi-select
   return (
     <div className="space-y-2" ref={dropdownRef}>
       {/* Trigger button */}
@@ -221,7 +294,7 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search channels..."
+              placeholder="Search channels or categories..."
               className="flex-1 bg-transparent text-sm text-ev-text-primary outline-none placeholder:text-muted-foreground"
               autoFocus
             />

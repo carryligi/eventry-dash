@@ -41,7 +41,7 @@ export default async function AdminSettingsPage() {
       key: 'guild_id',
       label: 'Guild ID',
       masked: false,
-      readOnly: true,
+      readOnly: false,
     },
   ]
 
