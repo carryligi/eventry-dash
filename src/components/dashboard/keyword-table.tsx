@@ -77,7 +77,7 @@ function InlineNameEditor({ keyword }: { keyword: Keyword }) {
             if (e.key === 'Enter') save()
             if (e.key === 'Escape') cancel()
           }}
-          onBlur={save}
+          onBlur={cancel}
           disabled={isPending}
           className="h-6 w-full min-w-[80px] rounded border border-ev-border-strong bg-transparent px-1.5 text-sm text-ev-text-primary outline-none transition-colors"
         />

@@ -1,5 +1,4 @@
 import { cache } from 'react'
-import { unstable_cache } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
@@ -10,22 +9,15 @@ const getSessionData = cache(async () => {
   return getSession()
 })
 
-// Cached across requests: profile query cached for 5 minutes
+// Cached per-request: profile query runs at most once per server request
 const getProfileById = cache(async (userId: string) => {
-  const getCachedProfile = unstable_cache(
-    async (id: string) => {
-      const supabase = await createServerClient()
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle()
-      return profile as Profile | null
-    },
-    [`profile-${userId}`],
-    { revalidate: 300, tags: [`profile-${userId}`] }
-  )
-  return getCachedProfile(userId)
+  const supabase = await createServerClient()
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle()
+  return profile as Profile | null
 })
 
 export async function getUserId(): Promise<string> {
