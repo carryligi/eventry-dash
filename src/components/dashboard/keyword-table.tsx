@@ -43,7 +43,10 @@ function InlineNameEditor({ keyword }: { keyword: Keyword }) {
   const { execute, isPending } = useAction(
     (input: { id: string; name: string }) =>
       updateKeywordName(input.id, input.name),
-    { successMessage: 'Name updated' },
+    {
+      successMessage: 'Name updated',
+      onSuccess: () => setEditing(false),
+    },
   )
 
   useEffect(() => {
@@ -57,8 +60,9 @@ function InlineNameEditor({ keyword }: { keyword: Keyword }) {
     const trimmed = value.trim()
     if (trimmed !== (keyword.internal_name ?? '')) {
       execute({ id: keyword.id, name: trimmed })
+    } else {
+      setEditing(false)
     }
-    setEditing(false)
   }
 
   const cancel = () => {
@@ -74,10 +78,9 @@ function InlineNameEditor({ keyword }: { keyword: Keyword }) {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') save()
+            if (e.key === 'Enter') { e.preventDefault(); save() }
             if (e.key === 'Escape') cancel()
           }}
-          onBlur={cancel}
           disabled={isPending}
           className="h-6 w-full min-w-[80px] rounded border border-ev-border-strong bg-transparent px-1.5 text-sm text-ev-text-primary outline-none transition-colors"
         />
