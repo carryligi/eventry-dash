@@ -158,6 +158,8 @@ export async function toggleKeywordAutostart(
     }
 
     revalidatePath('/dashboard/autostart')
+    revalidatePath('/dashboard/keywords')
+    revalidatePath('/dashboard')
     return { success: true, data: undefined }
   } catch (err) {
     return { success: false, error: handleActionError(err, 'Fehler beim Aendern des Keyword-Autostart') }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useOptimistic, useTransition } from 'react'
 import {
   Table,
   TableBody,
@@ -12,6 +12,17 @@ import {
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Search,
   ArrowUpDown,
@@ -22,6 +33,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { deleteKeywords } from '@/lib/actions/keywords'
+import { toggleKeywordAutostart } from '@/lib/actions/silently'
 import { useAction } from '@/hooks/use-action'
 import { KeywordDialog } from './keyword-dialog'
 import type { Keyword } from '@/types'
@@ -70,15 +82,42 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [editingKeyword, setEditingKeyword] = useState<Keyword | null>(null)
+  const [deletingKeyword, setDeletingKeyword] = useState<Keyword | null>(null)
 
   const { execute: executeDelete, isPending } = useAction(deleteKeywords, {
-    successMessage: 'Keywords deleted',
-    onSuccess: () => setSelected(new Set()),
+    successMessage: 'Keyword deleted',
+    onSuccess: () => {
+      setSelected(new Set())
+      setDeletingKeyword(null)
+    },
   })
 
+  const [isAutostartPending, startAutostartTransition] = useTransition()
+  const [optimisticDisabled, setOptimisticDisabled] = useOptimistic(
+    disabledKeywords,
+    (current: string[], { keyword, enabled }: { keyword: string; enabled: boolean }) => {
+      if (enabled) {
+        return current.filter((k) => k !== keyword)
+      }
+      return [...current, keyword]
+    },
+  )
+
+  const { execute: executeAutostart } = useAction(
+    (input: { keyword: string; enabled: boolean }) =>
+      toggleKeywordAutostart(input.keyword, input.enabled),
+  )
+
+  const handleAutostartToggle = (keyword: string, enabled: boolean) => {
+    startAutostartTransition(() => {
+      setOptimisticDisabled({ keyword, enabled })
+      executeAutostart({ keyword, enabled })
+    })
+  }
+
   const disabledSet = useMemo(
-    () => new Set(disabledKeywords.map((k) => k.toLowerCase())),
-    [disabledKeywords],
+    () => new Set(optimisticDisabled.map((k) => k.toLowerCase())),
+    [optimisticDisabled],
   )
 
   const filtered = useMemo(() => {
@@ -241,7 +280,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                   {renderSortIcon('created_at')}
                 </button>
               </TableHead>
-              <TableHead className="w-10">
+              <TableHead className="w-20">
                 <span className="sr-only">Actions</span>
               </TableHead>
             </TableRow>
@@ -312,23 +351,22 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                       )}
                     </TableCell>
                     <TableCell>
-                      {isDisabled ? (
-                        <Badge
-                          variant="secondary"
-                          className="text-[10px] px-1.5 h-4"
-                        >
-                          <span className="inline-block size-1.5 rounded-full mr-0.5 bg-ev-text-tertiary" />
-                          Off
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="secondary"
-                          className="text-[10px] px-1.5 h-4"
-                        >
-                          <span className="inline-block size-1.5 rounded-full mr-0.5 bg-ev-success" />
-                          On
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-block size-1.5 rounded-full flex-shrink-0 ${
+                            isDisabled ? 'bg-ev-text-tertiary' : 'bg-ev-success'
+                          }`}
+                        />
+                        <Switch
+                          checked={!isDisabled}
+                          onCheckedChange={(checked) =>
+                            handleAutostartToggle(kw.keyword, checked)
+                          }
+                          disabled={isAutostartPending}
+                          size="sm"
+                          aria-label={`Autostart for ${kw.keyword}`}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell>
                       <span className="text-xs tabular-nums text-ev-text-tertiary">
@@ -339,15 +377,25 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                         })}
                       </span>
                     </TableCell>
-                    <TableCell className="w-10">
-                      <button
-                        type="button"
-                        onClick={() => setEditingKeyword(kw)}
-                        aria-label={`Edit ${kw.keyword}`}
-                        className="flex items-center justify-center size-7 rounded-md text-ev-text-tertiary opacity-60 hover:opacity-100 hover:bg-white/[0.05] transition-all"
-                      >
-                        <Pencil className="size-3.5" />
-                      </button>
+                    <TableCell className="w-20">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditingKeyword(kw)}
+                          aria-label={`Edit ${kw.keyword}`}
+                          className="flex items-center justify-center size-7 rounded-md text-ev-text-tertiary opacity-60 hover:opacity-100 hover:bg-white/[0.05] transition-all"
+                        >
+                          <Pencil className="size-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeletingKeyword(kw)}
+                          aria-label={`Delete ${kw.keyword}`}
+                          className="flex items-center justify-center size-7 rounded-md text-ev-text-tertiary opacity-60 hover:opacity-100 hover:bg-white/[0.05] hover:text-red-400 transition-all"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )
@@ -366,6 +414,46 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
         }}
         trigger={null}
       />
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog
+        open={!!deletingKeyword}
+        onOpenChange={(next) => {
+          if (!next) setDeletingKeyword(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Keyword löschen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              „{deletingKeyword?.keyword}“ wird dauerhaft gelöscht. Diese
+              Aktion kann nicht rückgängig gemacht werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={isPending}
+              onClick={() => {
+                if (deletingKeyword) executeDelete([deletingKeyword.id])
+              }}
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="size-3.5 mr-1 animate-spin" />
+                  Lösche…
+                </>
+              ) : (
+                <>
+                  <Trash2 className="size-3.5 mr-1" />
+                  Löschen
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
