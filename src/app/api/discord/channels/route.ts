@@ -104,7 +104,9 @@ export async function GET() {
     .select('key, value')
     .in('key', ['discord_bot_token', 'guild_id', 'allowed_category_ids'])
 
-  const settingsMap = new Map(settings?.map((s) => [s.key, s.value]) ?? [])
+  const settingsMap = new Map<string, string>(
+    (settings ?? []).map((s) => [s.key as string, s.value as string]),
+  )
   const botToken = settingsMap.get('discord_bot_token')
   const guildId = settingsMap.get('guild_id')
   const allowedCategoryIds = new Set(
