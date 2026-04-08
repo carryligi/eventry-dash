@@ -158,6 +158,10 @@ class BotCache:
                 self.app.guild_id = val
             elif key == "autostart_log_webhook_url":
                 self.app.autostart_log_webhook_url = val or ""
+            elif key == "webhook_user_payload_template":
+                self.app.webhook_user_payload_template = val or None
+            elif key == "webhook_admin_payload_template":
+                self.app.webhook_admin_payload_template = val or None
 
     # ── Supabase Realtime subscriptions ──────────────────────────────────
 
@@ -367,6 +371,10 @@ class BotCache:
                     self.app.guild_id = val
                 elif key == "autostart_log_webhook_url":
                     self.app.autostart_log_webhook_url = val
+                elif key == "webhook_user_payload_template":
+                    self.app.webhook_user_payload_template = val or None
+                elif key == "webhook_admin_payload_template":
+                    self.app.webhook_admin_payload_template = val or None
                 logger.info(f"[RT] App setting updated: {key}")
         except Exception as e:
             logger.error(f"[RT] Error in _on_app_settings_change: {e}")

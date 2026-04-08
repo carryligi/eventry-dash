@@ -17,6 +17,7 @@ export const ROUTES = {
   adminUsers: '/dashboard/admin/users',
   adminAdmins: '/dashboard/admin/admins',
   adminSettings: '/dashboard/admin/settings',
+  adminWebhooks: '/dashboard/admin/webhooks',
   adminImport: '/dashboard/admin/import',
 } as const
 
@@ -41,5 +42,6 @@ export const ADMIN_NAV_ITEMS = [
   { href: ROUTES.adminUsers, label: 'Users', icon: 'Users' },
   { href: ROUTES.adminAdmins, label: 'Admins', icon: 'Crown' },
   { href: ROUTES.adminSettings, label: 'App Settings', icon: 'Wrench' },
+  { href: ROUTES.adminWebhooks, label: 'Webhooks', icon: 'Webhook' },
   { href: ROUTES.adminImport, label: 'Import', icon: 'Upload' },
 ] as const

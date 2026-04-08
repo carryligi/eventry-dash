@@ -506,6 +506,7 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                                 stock_info=stock_info,
                                 message_jump_url=message.jump_url,
                                 http_status=http_status,
+                                template=cache.app.webhook_user_payload_template,
                             )
                         except Exception as e:
                             logger.error(f"[WEBHOOK] Failed for {uid}: {e}")
@@ -527,6 +528,7 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                                 channel_name=getattr(message.channel, "name", None),
                                 message_jump_url=message.jump_url,
                                 http_status=http_status,
+                                template=cache.app.webhook_admin_payload_template,
                             )
                         except Exception as e:
                             logger.error(f"[LOG WEBHOOK] Failed for {uid}: {e}")

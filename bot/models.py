@@ -54,3 +54,8 @@ class AppSettings:
     # Fires IN ADDITION to per-user webhooks, receives every autostart event
     # from every user with user mention, keyword, product, status, etc.
     autostart_log_webhook_url: str = ""
+    # JSON template strings (mustache-style `{{variable}}` placeholders)
+    # edited in the Dashboard Admin Panel and rendered by services.webhooks
+    # before being POSTed to Discord. None = use hardcoded default.
+    webhook_user_payload_template: Optional[str] = None
+    webhook_admin_payload_template: Optional[str] = None

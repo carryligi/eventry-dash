@@ -114,3 +114,29 @@ export const appSettingSchema = z.object({
   key: z.string().min(1),
   value: z.string(),
 })
+
+export const WEBHOOK_TEMPLATE_KEYS = [
+  'webhook_user_payload_template',
+  'webhook_admin_payload_template',
+] as const
+export type WebhookTemplateKey = (typeof WEBHOOK_TEMPLATE_KEYS)[number]
+
+export const webhookTemplateSchema = z.object({
+  key: z.enum(WEBHOOK_TEMPLATE_KEYS),
+  value: z.string().refine(
+    s => {
+      try {
+        const p = JSON.parse(s)
+        return (
+          typeof p === 'object' &&
+          p !== null &&
+          !Array.isArray(p) &&
+          Array.isArray((p as { embeds?: unknown }).embeds)
+        )
+      } catch {
+        return false
+      }
+    },
+    'Muss valides JSON mit einem "embeds" Array sein',
+  ),
+})

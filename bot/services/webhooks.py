@@ -1,15 +1,37 @@
 """
 Discord webhook notifications for autostart events.
+
+Templates are loaded from `app_settings` (edited in the Dashboard Admin Panel)
+and rendered with mustache-style `{{variable}}` substitution. Falls back to
+hardcoded defaults if no template is configured or the template is invalid.
 """
 
 import logging
 import urllib.parse
-from datetime import datetime, timezone
+from typing import Optional
 
-import pytz
 import requests
 
+from services.webhook_templates import (
+    DEFAULT_USER_WEBHOOK_TEMPLATE,
+    DEFAULT_ADMIN_WEBHOOK_TEMPLATE,
+    build_user_vars,
+    build_admin_vars,
+    render_template,
+)
+
 logger = logging.getLogger(__name__)
+
+
+def _decode_product_link(quicktask_url: str) -> str:
+    try:
+        parsed = urllib.parse.urlparse(quicktask_url)
+        params = urllib.parse.parse_qs(parsed.query)
+        if "product" in params:
+            return params["product"][0]
+    except Exception:
+        pass
+    return "—"
 
 
 def send_autostart_webhook(
@@ -22,54 +44,34 @@ def send_autostart_webhook(
     stock_info: str,
     message_jump_url: str,
     http_status: int,
+    template: Optional[str] = None,
 ) -> bool:
     """
-    Send a professional embed notification to the user's autostart webhook.
-    Called after a Silently autostart attempt for a matched keyword.
+    Send a Discord embed notification to the user's autostart webhook.
+    Uses the admin-configured template if provided, falls back to default.
     """
-    now_cest = datetime.now(pytz.timezone("Europe/Berlin"))
-    timestamp_str = now_cest.strftime("%d.%m.%Y %H:%M:%S CEST")
+    product_link = _decode_product_link(quicktask_url)
+    variables = build_user_vars(
+        keyword=keyword,
+        http_status=http_status,
+        product_title=product_title,
+        product_description=product_description,
+        price_info=price_info,
+        stock_info=stock_info,
+        product_link=product_link,
+        message_jump_url=message_jump_url,
+    )
 
-    # Extract product link from quicktask URL
-    product_link = "—"
-    try:
-        parsed = urllib.parse.urlparse(quicktask_url)
-        params = urllib.parse.parse_qs(parsed.query)
-        if "product" in params:
-            product_link = params["product"][0]
-    except Exception:
-        pass
-
-    status_text = f"✅ {http_status} OK" if http_status == 200 else f"❌ {http_status} Failed"
-
-    payload = {
-        "username": "Eventry",
-        "embeds": [
-            {
-                "title": "🚀 Autostart Triggered",
-                "color": 0xADADAD,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "fields": [
-                    {"name": "Keyword", "value": f"`{keyword}`", "inline": True},
-                    {"name": "Status", "value": status_text, "inline": True},
-                    {"name": "Product", "value": product_title[:256], "inline": False},
-                    {"name": "Price Breaks", "value": price_info[:256], "inline": True},
-                    {"name": "Stock", "value": stock_info[:64], "inline": True},
-                    {
-                        "name": "Product Link",
-                        "value": product_link[:512] if product_link != "—" else "—",
-                        "inline": False,
-                    },
-                    {
-                        "name": "Message",
-                        "value": f"[Jump to original message]({message_jump_url})",
-                        "inline": False,
-                    },
-                ],
-                "footer": {"text": f"Eventry Autostart • {timestamp_str}"},
-            }
-        ]
-    }
+    payload = None
+    if template:
+        payload = render_template(template, variables)
+        if payload is None:
+            logger.warning("[WEBHOOK] Custom user template failed to render, using default")
+    if payload is None:
+        payload = render_template(DEFAULT_USER_WEBHOOK_TEMPLATE, variables)
+    if payload is None:
+        logger.error("[WEBHOOK] Default user template failed to render — this should never happen")
+        return False
 
     try:
         response = requests.post(webhook_url, json=payload, timeout=10)
@@ -88,81 +90,51 @@ def send_autostart_webhook(
 def send_autostart_log_webhook(
     log_webhook_url: str,
     whop_user_id: str,
-    discord_user_id: str | None,
-    username: str | None,
+    discord_user_id: Optional[str],
+    username: Optional[str],
     keyword: str,
     quicktask_url: str,
     product_title: str,
     price_info: str,
     stock_info: str,
-    channel_name: str | None,
+    channel_name: Optional[str],
     message_jump_url: str,
     http_status: int,
+    template: Optional[str] = None,
 ) -> bool:
     """
     Send an ADMIN-level audit log entry to the global autostart log webhook.
     Fires once per user per autostart attempt (success or failure).
-    The channel receiving this is typically an admin-only monitoring channel.
     """
     if not log_webhook_url:
         return False
 
-    now_cest = datetime.now(pytz.timezone("Europe/Berlin"))
-    timestamp_str = now_cest.strftime("%d.%m.%Y %H:%M:%S CEST")
+    product_link = _decode_product_link(quicktask_url)
+    user_mention = f"<@{discord_user_id}>" if discord_user_id else ""
+    variables = build_admin_vars(
+        keyword=keyword,
+        http_status=http_status,
+        product_title=product_title,
+        price_info=price_info,
+        stock_info=stock_info,
+        product_link=product_link,
+        message_jump_url=message_jump_url,
+        user_mention=user_mention,
+        username=username or "",
+        whop_user_id=whop_user_id,
+        channel_name=channel_name or "",
+    )
 
-    # Extract decoded product link
-    product_link = "—"
-    try:
-        parsed = urllib.parse.urlparse(quicktask_url)
-        params = urllib.parse.parse_qs(parsed.query)
-        if "product" in params:
-            product_link = params["product"][0]
-    except Exception:
-        pass
-
-    success = http_status == 200
-    color = 0x4ADE80 if success else 0xF87171  # green / red
-    status_text = f"✅ {http_status} OK" if success else f"❌ {http_status} Failed"
-
-    # Build user display: @mention + username + whop id
-    user_parts: list[str] = []
-    if discord_user_id:
-        user_parts.append(f"<@{discord_user_id}>")
-    if username:
-        user_parts.append(f"`{username}`")
-    user_parts.append(f"`{whop_user_id}`")
-    user_display = " · ".join(user_parts)
-
-    payload = {
-        "username": "Eventry Admin Log",
-        "embeds": [
-            {
-                "title": "🔔 Autostart Triggered",
-                "color": color,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "fields": [
-                    {"name": "User", "value": user_display[:1024], "inline": False},
-                    {"name": "Keyword", "value": f"`{keyword}`", "inline": True},
-                    {"name": "Status", "value": status_text, "inline": True},
-                    {"name": "Channel", "value": f"#{channel_name or '—'}", "inline": True},
-                    {"name": "Product", "value": product_title[:256], "inline": False},
-                    {"name": "Price Breaks", "value": price_info[:256], "inline": True},
-                    {"name": "Stock", "value": stock_info[:64], "inline": True},
-                    {
-                        "name": "Product Link",
-                        "value": product_link[:512] if product_link != "—" else "—",
-                        "inline": False,
-                    },
-                    {
-                        "name": "Source Message",
-                        "value": f"[Jump to original]({message_jump_url})",
-                        "inline": False,
-                    },
-                ],
-                "footer": {"text": f"Eventry Admin Log • {timestamp_str}"},
-            }
-        ],
-    }
+    payload = None
+    if template:
+        payload = render_template(template, variables)
+        if payload is None:
+            logger.warning("[LOG WEBHOOK] Custom admin template failed to render, using default")
+    if payload is None:
+        payload = render_template(DEFAULT_ADMIN_WEBHOOK_TEMPLATE, variables)
+    if payload is None:
+        logger.error("[LOG WEBHOOK] Default admin template failed to render — this should never happen")
+        return False
 
     try:
         response = requests.post(log_webhook_url, json=payload, timeout=10)
