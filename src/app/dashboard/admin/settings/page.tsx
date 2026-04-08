@@ -43,6 +43,12 @@ export default async function AdminSettingsPage() {
       masked: false,
       readOnly: false,
     },
+    {
+      key: 'allowed_category_ids',
+      label: 'Erlaubte Kategorie-IDs (komma-separiert)',
+      masked: false,
+      readOnly: false,
+    },
   ]
 
   return (

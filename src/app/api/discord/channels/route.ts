@@ -102,11 +102,17 @@ export async function GET() {
   const { data: settings } = await supabase
     .from('app_settings')
     .select('key, value')
-    .in('key', ['discord_bot_token', 'guild_id'])
+    .in('key', ['discord_bot_token', 'guild_id', 'allowed_category_ids'])
 
   const settingsMap = new Map(settings?.map((s) => [s.key, s.value]) ?? [])
   const botToken = settingsMap.get('discord_bot_token')
   const guildId = settingsMap.get('guild_id')
+  const allowedCategoryIds = new Set(
+    (settingsMap.get('allowed_category_ids') ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  )
 
   if (!botToken) {
     return NextResponse.json(
@@ -173,6 +179,8 @@ export async function GET() {
   }
 
   // Separate categories and channels, filtering by bot's effective permissions
+  // AND by the allowed_category_ids whitelist (only channels inside whitelisted
+  // categories are returned; uncategorized channels are dropped entirely).
   const categoryMap = new Map<string, DiscordCategory>()
   const textChannels: DiscordTextChannel[] = []
 
@@ -181,6 +189,7 @@ export async function GET() {
     if (rolePermsMap.size > 0 && !botCanView(ch, guildId, botRoleIds, rolePermsMap)) continue
 
     if (ch.type === CATEGORY_TYPE) {
+      if (!allowedCategoryIds.has(ch.id)) continue
       categoryMap.set(ch.id, {
         id: ch.id,
         name: ch.name,
@@ -188,6 +197,7 @@ export async function GET() {
         channels: [],
       })
     } else if (TEXT_CHANNEL_TYPES.has(ch.type)) {
+      if (!ch.parent_id || !allowedCategoryIds.has(ch.parent_id)) continue
       textChannels.push({
         id: ch.id,
         name: ch.name,
@@ -198,14 +208,14 @@ export async function GET() {
     }
   }
 
-  // Group channels into categories
+  // Group channels into their (whitelisted) categories.
+  // Uncategorized is always empty now because non-whitelisted channels were
+  // already filtered out above, but we keep the field for response-shape compat.
   const uncategorized: DiscordTextChannel[] = []
 
   for (const ch of textChannels) {
     if (ch.parent_id && categoryMap.has(ch.parent_id)) {
       categoryMap.get(ch.parent_id)!.channels.push(ch)
-    } else {
-      uncategorized.push(ch)
     }
   }
 
