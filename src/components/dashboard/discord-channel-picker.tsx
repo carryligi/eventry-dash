@@ -5,17 +5,10 @@ import { Input } from '@/components/ui/input'
 import { Hash, Volume2, Megaphone, ChevronDown, X, Search, Loader2, AlertCircle } from 'lucide-react'
 import type { DiscordChannelsResponse, DiscordTextChannel } from '@/types'
 
-// Only channels/categories belonging to these Discord category IDs are selectable
-// when creating a keyword. Keyword monitoring is restricted to these categories.
-const ALLOWED_CATEGORY_IDS: ReadonlySet<string> = new Set([
-  '1354884871570456598',
-  '1341277243573538919',
-  '1341277125092704266',
-  '1467591500631245051',
-  '1467581388957159568',
-  '1341277169191489628',
-  '1344768296372797614',
-])
+// The category whitelist lives server-side in app_settings.allowed_category_ids
+// (see /api/discord/channels/route.ts). This component just renders what the
+// API returns — no client-side filtering. An admin can edit the whitelist at
+// /dashboard/admin/settings without a redeploy.
 
 interface DiscordChannelPickerProps {
   mode: 'channels' | 'category'
@@ -85,12 +78,11 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  // Restrict to whitelisted categories only (drops 'uncategorized' entirely).
-  const allowedCategories = data?.categories.filter((cat) =>
-    ALLOWED_CATEGORY_IDS.has(cat.id),
-  ) ?? []
+  // API already filters to whitelisted categories (server-side, driven by
+  // app_settings.allowed_category_ids). 'uncategorized' is always empty.
+  const allowedCategories = data?.categories ?? []
 
-  // Get all channels flat for lookup (only channels under allowed categories).
+  // Get all channels flat for lookup.
   const allChannels: DiscordTextChannel[] = allowedCategories.flatMap((c) => c.channels)
 
   const selectedNames = selectedIds
