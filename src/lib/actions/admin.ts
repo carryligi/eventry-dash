@@ -66,6 +66,20 @@ export async function updateAppSetting(key: string, value: string): Promise<Acti
     const parsed = appSettingSchema.safeParse({ key, value })
     if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
 
+    // Key-specific validation for webhook URLs. Allow empty string to clear.
+    if (parsed.data.key === 'autostart_log_webhook_url' && parsed.data.value.trim() !== '') {
+      const url = parsed.data.value.trim()
+      const isDiscordWebhook =
+        url.startsWith('https://discord.com/api/webhooks/') ||
+        url.startsWith('https://discordapp.com/api/webhooks/')
+      if (!isDiscordWebhook) {
+        return {
+          success: false,
+          error: 'Muss eine gueltige Discord Webhook URL sein (https://discord.com/api/webhooks/...)',
+        }
+      }
+    }
+
     const supabase = await createServerClient()
     const { error } = await supabase
       .from('app_settings')

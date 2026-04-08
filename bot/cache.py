@@ -11,12 +11,13 @@ from datetime import datetime
 from typing import Optional
 
 import pytz
+from realtime import RealtimeSubscribeStates
 
 from models import (
     Keyword, PingerSettings, SilentlySettings,
     PushoverSettings, WebhookSettings, AppSettings,
 )
-from config import supabase, get_async_supabase
+from config import supabase, get_async_supabase, SUPABASE_SERVICE_ROLE_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,20 @@ class BotCache:
         self.pushover: dict[str, PushoverSettings] = {}
         # {user_id: WebhookSettings}
         self.webhooks: dict[str, WebhookSettings] = {}
+        # {whop_user_id: discord_user_id_str}
+        # Needed because DB rows are keyed by Whop user_id but Discord APIs
+        # (guild.get_member, fetch_user, user.send) need a numeric Discord id.
+        self.discord_id_by_whop: dict[str, str] = {}
+        # {whop_user_id: username} — used by admin log webhook for readable user display
+        self.username_by_whop: dict[str, str] = {}
         # {user_id: set(keyword_text)}
         self.disabled_keywords: dict[str, set[str]] = defaultdict(set)
+        # Reverse lookup for Realtime DELETE events on `autostart_disabled_keywords`.
+        # Supabase Realtime only includes the PK (id) in DELETE payloads, even with
+        # REPLICA IDENTITY FULL, so we maintain a row_id -> (user_id, keyword) map
+        # so that deletes can resolve back to the set entry.
+        # {row_id: (user_id, keyword)}
+        self._disabled_id_map: dict[str, tuple[str, str]] = {}
         # {user_id: {channel_id: {keyword_id: expiry_datetime}}}
         self.active_cooldowns: dict[str, dict[str, dict[str, datetime]]] = defaultdict(
             lambda: defaultdict(dict)
@@ -50,6 +63,7 @@ class BotCache:
     async def load_all(self):
         """Load everything from Supabase into RAM. Called once at startup."""
         await asyncio.gather(
+            self._load_profiles(),
             self._load_keywords(),
             self._load_pinger(),
             self._load_silently(),
@@ -62,8 +76,26 @@ class BotCache:
         logger.info(
             f"Cache loaded: {sum(len(v) for v in self.keywords.values())} keywords, "
             f"{len(self.pinger)} pinger, {len(self.silently)} silently, "
-            f"{len(self.pushover)} pushover, {len(self.webhooks)} webhooks"
+            f"{len(self.pushover)} pushover, {len(self.webhooks)} webhooks, "
+            f"{len(self.discord_id_by_whop)} discord mappings"
         )
+
+    async def _load_profiles(self):
+        data = (
+            supabase.table("profiles")
+            .select("id, discord_user_id, username")
+            .execute()
+            .data
+            or []
+        )
+        self.discord_id_by_whop.clear()
+        self.username_by_whop.clear()
+        for row in data:
+            wid = row["id"]
+            if row.get("discord_user_id"):
+                self.discord_id_by_whop[wid] = row["discord_user_id"]
+            if row.get("username"):
+                self.username_by_whop[wid] = row["username"]
 
     async def _load_keywords(self):
         data = supabase.table("keywords").select("*").execute().data or []
@@ -91,8 +123,14 @@ class BotCache:
     async def _load_disabled_keywords(self):
         data = supabase.table("autostart_disabled_keywords").select("*").execute().data or []
         self.disabled_keywords.clear()
+        self._disabled_id_map.clear()
         for row in data:
-            self.disabled_keywords[row["user_id"]].add(row["keyword"])
+            uid = row["user_id"]
+            kw = row["keyword"]
+            rid = row.get("id")
+            self.disabled_keywords[uid].add(kw)
+            if rid:
+                self._disabled_id_map[str(rid)] = (uid, kw)
 
     async def _load_cooldowns(self):
         data = supabase.table("active_cooldowns").select("*").execute().data or []
@@ -118,13 +156,25 @@ class BotCache:
                 self.app.discord_bot_token = val
             elif key == "guild_id":
                 self.app.guild_id = val
+            elif key == "autostart_log_webhook_url":
+                self.app.autostart_log_webhook_url = val or ""
 
     # ── Supabase Realtime subscriptions ──────────────────────────────────
 
     async def subscribe(self):
         """Subscribe to Realtime changes on all config tables (async client required)."""
         async_sb = await get_async_supabase()
+
+        # CRITICAL: explicitly set service_role token on the Realtime WebSocket,
+        # otherwise Supabase may silently filter events even with permissive RLS.
+        try:
+            await async_sb.realtime.set_auth(SUPABASE_SERVICE_ROLE_KEY)
+            logger.info("Realtime auth set to service_role")
+        except Exception as e:
+            logger.warning(f"Realtime set_auth failed (non-fatal): {e}")
+
         tables = [
+            ("profiles", self._on_profile_change),
             ("keywords", self._on_keywords_change),
             ("pinger_settings", self._on_pinger_change),
             ("silently_settings", self._on_silently_change),
@@ -141,23 +191,75 @@ class BotCache:
                 table=table,
                 callback=callback,
             )
-            await channel.subscribe()
+
+            # Capture `table` in closure for the status callback
+            def _make_status_cb(tname: str):
+                def _on_status(status, err):
+                    if status == RealtimeSubscribeStates.SUBSCRIBED:
+                        logger.info(f"[RT] {tname}: SUBSCRIBED (receiving events)")
+                    elif status == RealtimeSubscribeStates.CHANNEL_ERROR:
+                        logger.error(f"[RT] {tname}: CHANNEL_ERROR — {err}")
+                    elif status == RealtimeSubscribeStates.TIMED_OUT:
+                        logger.error(f"[RT] {tname}: TIMED_OUT — server did not respond")
+                    elif status == RealtimeSubscribeStates.CLOSED:
+                        logger.warning(f"[RT] {tname}: CLOSED — channel disconnected")
+                return _on_status
+
+            await channel.subscribe(_make_status_cb(table))
             self._realtime_channels.append(channel)
             logger.info(f"Subscribed to Realtime: {table}")
 
+    # ── Payload helper ───────────────────────────────────────────────────
+    # Supabase Realtime v2 delivers payloads as:
+    #   { 'data': { 'type': 'INSERT'|'UPDATE'|'DELETE',
+    #               'record': {...}, 'old_record': {...},
+    #               'schema': 'public', 'table': '...' },
+    #     'ids': [...] }
+    # `type` arrives as a RealtimePostgresChangesListenEvent enum, not a string.
+    @staticmethod
+    def _extract(payload):
+        data = payload.get("data") or {}
+        etype = data.get("type", "")
+        if hasattr(etype, "value"):
+            etype = etype.value
+        etype = str(etype).upper()
+        record = data.get("record") or {}
+        old_record = data.get("old_record") or {}
+        return etype, record, old_record
+
+    def _on_profile_change(self, payload):
+        try:
+            etype, record, old = self._extract(payload)
+            if etype == "DELETE" and old.get("id"):
+                self.discord_id_by_whop.pop(old["id"], None)
+                self.username_by_whop.pop(old["id"], None)
+                logger.info(f"[RT] Profile deleted: {old['id']}")
+            elif record and "id" in record:
+                whop_id = record["id"]
+                discord_id = record.get("discord_user_id")
+                username = record.get("username")
+                if discord_id:
+                    self.discord_id_by_whop[whop_id] = discord_id
+                    logger.info(f"[RT] Profile mapping: {whop_id} -> discord:{discord_id}")
+                else:
+                    if self.discord_id_by_whop.pop(whop_id, None) is not None:
+                        logger.info(f"[RT] Profile mapping cleared: {whop_id}")
+                if username:
+                    self.username_by_whop[whop_id] = username
+                else:
+                    self.username_by_whop.pop(whop_id, None)
+        except Exception as e:
+            logger.error(f"[RT] Error in _on_profile_change: {e}")
+
     def _on_keywords_change(self, payload):
         try:
-            event = payload.get("eventType") or payload.get("type", "")
-            record = payload.get("new") or payload.get("record", {})
-            old = payload.get("old", {})
-
-            if event == "DELETE" and old.get("id"):
-                for uid, kws in self.keywords.items():
-                    self.keywords[uid] = [k for k in kws if k.id != old["id"]]
+            etype, record, old = self._extract(payload)
+            if etype == "DELETE" and old.get("id"):
+                for uid in list(self.keywords):
+                    self.keywords[uid] = [k for k in self.keywords[uid] if k.id != old["id"]]
                 logger.info(f"[RT] Keyword deleted: {old.get('id')}")
             elif record:
                 kw = _row_to_keyword(record)
-                # Remove old version if exists
                 if kw.user_id in self.keywords:
                     self.keywords[kw.user_id] = [
                         k for k in self.keywords[kw.user_id] if k.id != kw.id
@@ -169,8 +271,11 @@ class BotCache:
 
     def _on_pinger_change(self, payload):
         try:
-            record = payload.get("new") or payload.get("record", {})
-            if record and "user_id" in record:
+            etype, record, old = self._extract(payload)
+            if etype == "DELETE" and old.get("user_id"):
+                self.pinger.pop(old["user_id"], None)
+                logger.info(f"[RT] Pinger deleted: {old['user_id']}")
+            elif record and "user_id" in record:
                 self.pinger[record["user_id"]] = _row_to_pinger(record)
                 logger.info(f"[RT] Pinger updated: {record['user_id']}")
         except Exception as e:
@@ -178,8 +283,11 @@ class BotCache:
 
     def _on_silently_change(self, payload):
         try:
-            record = payload.get("new") or payload.get("record", {})
-            if record and "user_id" in record:
+            etype, record, old = self._extract(payload)
+            if etype == "DELETE" and old.get("user_id"):
+                self.silently.pop(old["user_id"], None)
+                logger.info(f"[RT] Silently deleted: {old['user_id']}")
+            elif record and "user_id" in record:
                 self.silently[record["user_id"]] = _row_to_silently(record)
                 logger.info(f"[RT] Silently updated: {record['user_id']}")
         except Exception as e:
@@ -187,8 +295,11 @@ class BotCache:
 
     def _on_pushover_change(self, payload):
         try:
-            record = payload.get("new") or payload.get("record", {})
-            if record and "user_id" in record:
+            etype, record, old = self._extract(payload)
+            if etype == "DELETE" and old.get("user_id"):
+                self.pushover.pop(old["user_id"], None)
+                logger.info(f"[RT] Pushover deleted: {old['user_id']}")
+            elif record and "user_id" in record:
                 self.pushover[record["user_id"]] = _row_to_pushover(record)
                 logger.info(f"[RT] Pushover updated: {record['user_id']}")
         except Exception as e:
@@ -196,11 +307,8 @@ class BotCache:
 
     def _on_webhooks_change(self, payload):
         try:
-            event = payload.get("eventType") or payload.get("type", "")
-            record = payload.get("new") or payload.get("record", {})
-            old = payload.get("old", {})
-
-            if event == "DELETE" and old.get("user_id"):
+            etype, record, old = self._extract(payload)
+            if etype == "DELETE" and old.get("user_id"):
                 self.webhooks.pop(old["user_id"], None)
                 logger.info(f"[RT] Webhook deleted: {old['user_id']}")
             elif record and "user_id" in record:
@@ -211,34 +319,54 @@ class BotCache:
 
     def _on_disabled_kw_change(self, payload):
         try:
-            event = payload.get("eventType") or payload.get("type", "")
-            record = payload.get("new") or payload.get("record", {})
-            old = payload.get("old", {})
-
-            if event == "DELETE" and old:
-                uid = old.get("user_id", "")
-                kw = old.get("keyword", "")
+            etype, record, old = self._extract(payload)
+            # Supabase Realtime DELETE payloads only contain the PK (id), not
+            # user_id/keyword — even with REPLICA IDENTITY FULL, the Realtime
+            # pipeline strips non-PK columns server-side. So we maintain an
+            # id -> (user_id, keyword) reverse map populated on INSERT and
+            # startup, and resolve the DELETE via that map.
+            if etype == "DELETE":
+                old_id = str(old.get("id", "")) if old else ""
+                if not old_id:
+                    logger.warning("[RT] Disabled keyword DELETE without id in payload — cannot resolve")
+                    return
+                mapped = self._disabled_id_map.pop(old_id, None)
+                if mapped is None:
+                    logger.warning(
+                        f"[RT] Disabled keyword DELETE id={old_id} not found in reverse map — "
+                        f"cache may be stale, triggering reload"
+                    )
+                    # Best-effort resync: reload from DB on next tick
+                    asyncio.create_task(self._load_disabled_keywords())
+                    return
+                uid, kw = mapped
                 self.disabled_keywords[uid].discard(kw)
                 logger.info(f"[RT] Disabled keyword removed: {kw} for {uid}")
             elif record:
-                uid = record["user_id"]
-                kw = record["keyword"]
-                self.disabled_keywords[uid].add(kw)
-                logger.info(f"[RT] Disabled keyword added: {kw} for {uid}")
+                uid = record.get("user_id", "")
+                kw = record.get("keyword", "")
+                rid = record.get("id")
+                if uid and kw:
+                    self.disabled_keywords[uid].add(kw)
+                    if rid:
+                        self._disabled_id_map[str(rid)] = (uid, kw)
+                    logger.info(f"[RT] Disabled keyword added: {kw} for {uid}")
         except Exception as e:
             logger.error(f"[RT] Error in _on_disabled_kw_change: {e}")
 
     def _on_app_settings_change(self, payload):
         try:
-            record = payload.get("new") or payload.get("record", {})
+            etype, record, old = self._extract(payload)
             if record:
-                key, val = record.get("key", ""), record.get("value", "")
+                key, val = record.get("key", ""), record.get("value", "") or ""
                 if key == "silently_api_key":
                     self.app.silently_api_key = val
                 elif key == "pushover_app_key":
                     self.app.pushover_app_key = val
                 elif key == "guild_id":
                     self.app.guild_id = val
+                elif key == "autostart_log_webhook_url":
+                    self.app.autostart_log_webhook_url = val
                 logger.info(f"[RT] App setting updated: {key}")
         except Exception as e:
             logger.error(f"[RT] Error in _on_app_settings_change: {e}")

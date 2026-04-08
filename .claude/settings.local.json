@@ -15,7 +15,11 @@
       "Bash(printf \"https://eventry-dash.vercel.app/auth/callback\")",
       "Bash(printf \"y\\\\n\")",
       "WebSearch",
-      "WebFetch(domain:docs.whop.com)"
+      "WebFetch(domain:docs.whop.com)",
+      "Bash(python _make_bot_zip.py)",
+      "mcp__bdf0900e-2cea-44ac-83bf-0b52ece88e95__execute_sql",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs"
     ]
   }
 }

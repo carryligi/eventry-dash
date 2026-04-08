@@ -22,6 +22,12 @@ export default async function SettingsPage() {
     .eq('user_id', profile.id)
     .maybeSingle()
 
+  const { data: profileRow } = await supabase
+    .from('profiles')
+    .select('discord_user_id')
+    .eq('id', profile.id)
+    .maybeSingle()
+
   const avatarUrl = profile.avatar_url ?? null
 
   const joinedDate = new Date(profile.created_at).toLocaleDateString('en-US', {
@@ -78,10 +84,11 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Interactive sections (cooldown + danger zone) */}
+        {/* Interactive sections (discord id + cooldown + danger zone) */}
         <SettingsForm
           cooldownMinutes={pingerSettings?.cooldown_minutes ?? 0}
           pingerActive={pingerSettings?.is_active ?? false}
+          discordUserId={profileRow?.discord_user_id ?? null}
         />
       </div>
     </>

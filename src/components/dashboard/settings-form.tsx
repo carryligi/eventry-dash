@@ -9,19 +9,26 @@ import { useAction, useActionNoInput } from '@/hooks/use-action'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { updateCooldown, togglePinger } from '@/lib/actions/pinger'
 import { removeAllKeywords } from '@/lib/actions/keywords'
-import { Clock, AlertTriangle, Power, Trash2, Loader2 } from 'lucide-react'
+import { updateDiscordUserId } from '@/lib/actions/profile'
+import { Clock, AlertTriangle, Power, Trash2, Loader2, MessageSquare } from 'lucide-react'
 
 interface SettingsFormProps {
   cooldownMinutes: number
   pingerActive: boolean
+  discordUserId: string | null
 }
 
-export function SettingsForm({ cooldownMinutes, pingerActive }: SettingsFormProps) {
+export function SettingsForm({ cooldownMinutes, pingerActive, discordUserId }: SettingsFormProps) {
   const [cooldown, setCooldown] = useState(cooldownMinutes)
+  const [discordId, setDiscordId] = useState(discordUserId ?? '')
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
 
   const cooldownAction = useAction(updateCooldown, {
     successMessage: 'Cooldown saved',
+  })
+
+  const discordAction = useAction(updateDiscordUserId, {
+    successMessage: 'Discord User ID gespeichert',
   })
 
   const deactivateAction = useAction(togglePinger, {
@@ -33,8 +40,51 @@ export function SettingsForm({ cooldownMinutes, pingerActive }: SettingsFormProp
     onSuccess: () => setRemoveDialogOpen(false),
   })
 
+  const discordIdChanged = discordId.trim() !== (discordUserId ?? '')
+
   return (
     <div className="space-y-8">
+      {/* Discord User ID Section */}
+      <div className="bg-ev-secondary rounded-xl border border-ev-border-default p-5 space-y-4">
+        <div>
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-ev-text-primary">
+            <MessageSquare className="size-4 text-ev-text-accent" />
+            Discord User ID
+          </h3>
+          <p className="text-xs text-ev-text-secondary mt-1">
+            Erforderlich für DMs, Server-Checks und Silently Autostart. Discord →
+            Einstellungen → Erweitert → Entwicklermodus an → Rechtsklick auf dein
+            Profil → &quot;User-ID kopieren&quot;.
+          </p>
+        </div>
+
+        <div className="flex items-end gap-3">
+          <div className="space-y-2 flex-1 max-w-[320px]">
+            <Label htmlFor="discord-user-id" className="text-ev-text-secondary">
+              Discord User ID (Snowflake)
+            </Label>
+            <Input
+              id="discord-user-id"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="z.B. 581447756858785792"
+              value={discordId}
+              onChange={(e) => setDiscordId(e.target.value)}
+              className="bg-ev-tertiary border-ev-border-default text-ev-text-primary font-mono"
+            />
+          </div>
+          <Button
+            onClick={() => discordAction.execute(discordId.trim())}
+            disabled={discordAction.isPending || !discordIdChanged}
+            size="default"
+          >
+            {discordAction.isPending && <Loader2 className="size-3.5 animate-spin" />}
+            Save
+          </Button>
+        </div>
+      </div>
+
       {/* Pinger Cooldown Section */}
       <div className="bg-ev-secondary rounded-xl border border-ev-border-default p-5 space-y-4">
         <div>

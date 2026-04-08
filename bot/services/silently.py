@@ -33,13 +33,17 @@ def trigger_silently(
     try:
         response = requests.get(request_url, timeout=30)
         success = response.status_code == 200
+        product = extract_product_url(quicktask_url)
         if success:
-            logger.info(f"[SILENTLY] OK | Users: {len(user_keys)} | URL: {quicktask_url[:80]}")
+            logger.info(
+                f"[SILENTLY] OK | Users: {len(user_keys)} | Product: {product}"
+            )
         else:
             logger.warning(
                 f"[SILENTLY] FAILED {response.status_code} | Users: {len(user_keys)} | "
-                f"URL: {quicktask_url[:80]}"
+                f"Product: {product}"
             )
+        logger.debug(f"[SILENTLY] Full URL: {quicktask_url}")
         return success, response.status_code
     except Exception as e:
         logger.error(f"[SILENTLY] Request exception: {e}")

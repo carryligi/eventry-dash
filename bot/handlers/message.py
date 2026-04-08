@@ -89,24 +89,41 @@ def _build_pushover_message(embed: discord.Embed, jump_url: str) -> str:
 
 
 # ── User fetching ────────────────────────────────────────────────────────
+# NOTE on IDs:
+#   The DB rows are keyed by Whop user_id (e.g. "user_v0uynja6gMtkm", string).
+#   Discord APIs need a numeric Discord snowflake (e.g. 581447756858785792).
+#   The mapping whop_id -> discord_id lives in BotCache.discord_id_by_whop,
+#   loaded from `profiles.discord_user_id` and kept in sync via Realtime.
+#   Users without a Discord ID mapping are silently skipped (no crash, no spam).
+#
+#   `_user_cache` is keyed by **Discord ID** (the actual ID used against
+#   Discord APIs), not the Whop ID.
 
-async def _fetch_user(bot: discord.Client, user_id: str) -> discord.User | None:
+
+async def _fetch_user(bot: discord.Client, discord_id: str) -> discord.User | None:
+    """Fetch a Discord user object by their numeric Discord ID (as string)."""
     now = datetime.now(pytz.UTC).timestamp()
-    if user_id in _user_cache and now - _user_cache[user_id][1] < _USER_CACHE_TTL:
-        return _user_cache[user_id][0]
+    if discord_id in _user_cache and now - _user_cache[discord_id][1] < _USER_CACHE_TTL:
+        return _user_cache[discord_id][0]
+
+    try:
+        did_int = int(discord_id)
+    except (ValueError, TypeError):
+        logger.warning(f"Invalid Discord ID: {discord_id!r}")
+        return None
 
     guild = bot.get_guild(GUILD_ID)
     if guild:
-        member = guild.get_member(int(user_id))
+        member = guild.get_member(did_int)
         if member:
-            _user_cache[user_id] = (member, now)
+            _user_cache[discord_id] = (member, now)
             return member
 
     async with FETCH_SEMAPHORE:
         for attempt in range(3):
             try:
-                user = await bot.fetch_user(int(user_id))
-                _user_cache[user_id] = (user, now)
+                user = await bot.fetch_user(did_int)
+                _user_cache[discord_id] = (user, now)
                 return user
             except discord.HTTPException as e:
                 if e.status == 429:
@@ -119,28 +136,60 @@ async def _fetch_user(bot: discord.Client, user_id: str) -> discord.User | None:
 
 
 async def _batch_fetch_users(
-    bot: discord.Client, user_ids: set[str]
+    bot: discord.Client, cache: BotCache, whop_user_ids: set[str]
 ) -> dict[str, discord.User]:
-    users = {}
+    """
+    Resolve a set of Whop user IDs to Discord user objects.
+
+    Returns a dict keyed by the WHOP user id so downstream logic (which is
+    keyed by whop id everywhere) keeps working unchanged. Whop users without
+    a discord_user_id mapping are skipped with a debug log.
+    """
+    users: dict[str, discord.User] = {}
     guild = bot.get_guild(GUILD_ID)
     now = datetime.now(pytz.UTC).timestamp()
 
-    for uid in user_ids:
-        if uid in _user_cache and now - _user_cache[uid][1] < _USER_CACHE_TTL:
-            users[uid] = _user_cache[uid][0]
+    missing_mapping: list[str] = []
+    to_fetch: list[tuple[str, str]] = []  # (whop_id, discord_id)
+
+    for whop_id in whop_user_ids:
+        discord_id = cache.discord_id_by_whop.get(whop_id)
+        if not discord_id:
+            missing_mapping.append(whop_id)
             continue
+
+        # Try memory cache first
+        if discord_id in _user_cache and now - _user_cache[discord_id][1] < _USER_CACHE_TTL:
+            users[whop_id] = _user_cache[discord_id][0]
+            continue
+
+        # Try guild member lookup
         if guild:
-            m = guild.get_member(int(uid))
-            if m:
-                _user_cache[uid] = (m, now)
-                users[uid] = m
+            try:
+                m = guild.get_member(int(discord_id))
+                if m:
+                    _user_cache[discord_id] = (m, now)
+                    users[whop_id] = m
+                    continue
+            except (ValueError, TypeError):
+                logger.warning(
+                    f"Invalid Discord ID mapping: whop={whop_id} discord={discord_id!r}"
+                )
                 continue
 
-    uncached = user_ids - set(users.keys())
-    for uid in uncached:
-        u = await _fetch_user(bot, uid)
+        to_fetch.append((whop_id, discord_id))
+
+    if missing_mapping:
+        logger.debug(
+            f"Skip {len(missing_mapping)} users with no Discord ID mapping: "
+            f"{missing_mapping[:5]}{'…' if len(missing_mapping) > 5 else ''}"
+        )
+
+    # Fall back to Discord API for any uncached/non-member users
+    for whop_id, discord_id in to_fetch:
+        u = await _fetch_user(bot, discord_id)
         if u:
-            users[uid] = u
+            users[whop_id] = u
 
     return users
 
@@ -256,7 +305,9 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
             continue
 
         # ── Fetch Discord user objects ──
-        users = await _batch_fetch_users(bot, user_ids_to_fetch)
+        # user_ids_to_fetch contains WHOP user ids; _batch_fetch_users
+        # translates them to Discord ids via the cache mapping.
+        users = await _batch_fetch_users(bot, cache, user_ids_to_fetch)
         silently_queue: list[dict] = []
 
         for keyword, channels in keyword_matches.items():
@@ -458,6 +509,27 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                             )
                         except Exception as e:
                             logger.error(f"[WEBHOOK] Failed for {uid}: {e}")
+
+                    # Send admin log webhook (global, in addition to per-user)
+                    log_url = cache.app.autostart_log_webhook_url
+                    if log_url:
+                        try:
+                            webhooks.send_autostart_log_webhook(
+                                log_webhook_url=log_url,
+                                whop_user_id=uid,
+                                discord_user_id=cache.discord_id_by_whop.get(uid),
+                                username=cache.username_by_whop.get(uid),
+                                keyword=entry["keyword"],
+                                quicktask_url=quicktask_url,
+                                product_title=product_title,
+                                price_info=price_info,
+                                stock_info=stock_info,
+                                channel_name=getattr(message.channel, "name", None),
+                                message_jump_url=message.jump_url,
+                                http_status=http_status,
+                            )
+                        except Exception as e:
+                            logger.error(f"[LOG WEBHOOK] Failed for {uid}: {e}")
 
                     # Log to notification_log
                     asyncio.create_task(write_notification_log(

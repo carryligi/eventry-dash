@@ -98,6 +98,16 @@ export const scheduleSchema = z.object({
     .nullable(),
 })
 
+// ── Profile ──
+
+export const discordUserIdSchema = z.object({
+  discord_user_id: z
+    .string()
+    .trim()
+    .regex(/^[0-9]{17,20}$/, 'Muss eine 17-20 stellige Discord User ID sein')
+    .or(z.literal('')),
+})
+
 // ── Admin ──
 
 export const appSettingSchema = z.object({

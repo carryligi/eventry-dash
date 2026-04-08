@@ -50,3 +50,7 @@ class AppSettings:
     pushover_app_key: str = ""
     discord_bot_token: str = ""
     guild_id: str = ""
+    # Global admin-level autostart log webhook (Discord).
+    # Fires IN ADDITION to per-user webhooks, receives every autostart event
+    # from every user with user mention, keyword, product, status, etc.
+    autostart_log_webhook_url: str = ""

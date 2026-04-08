@@ -49,6 +49,12 @@ export default async function AdminSettingsPage() {
       masked: false,
       readOnly: false,
     },
+    {
+      key: 'autostart_log_webhook_url',
+      label: 'Autostart Log Webhook (Discord)',
+      masked: true,
+      readOnly: false,
+    },
   ]
 
   return (

@@ -83,3 +83,96 @@ def send_autostart_webhook(
     except Exception as e:
         logger.error(f"[WEBHOOK] Exception: {e}")
         return False
+
+
+def send_autostart_log_webhook(
+    log_webhook_url: str,
+    whop_user_id: str,
+    discord_user_id: str | None,
+    username: str | None,
+    keyword: str,
+    quicktask_url: str,
+    product_title: str,
+    price_info: str,
+    stock_info: str,
+    channel_name: str | None,
+    message_jump_url: str,
+    http_status: int,
+) -> bool:
+    """
+    Send an ADMIN-level audit log entry to the global autostart log webhook.
+    Fires once per user per autostart attempt (success or failure).
+    The channel receiving this is typically an admin-only monitoring channel.
+    """
+    if not log_webhook_url:
+        return False
+
+    now_cest = datetime.now(pytz.timezone("Europe/Berlin"))
+    timestamp_str = now_cest.strftime("%d.%m.%Y %H:%M:%S CEST")
+
+    # Extract decoded product link
+    product_link = "—"
+    try:
+        parsed = urllib.parse.urlparse(quicktask_url)
+        params = urllib.parse.parse_qs(parsed.query)
+        if "product" in params:
+            product_link = params["product"][0]
+    except Exception:
+        pass
+
+    success = http_status == 200
+    color = 0x4ADE80 if success else 0xF87171  # green / red
+    status_text = f"✅ {http_status} OK" if success else f"❌ {http_status} Failed"
+
+    # Build user display: @mention + username + whop id
+    user_parts: list[str] = []
+    if discord_user_id:
+        user_parts.append(f"<@{discord_user_id}>")
+    if username:
+        user_parts.append(f"`{username}`")
+    user_parts.append(f"`{whop_user_id}`")
+    user_display = " · ".join(user_parts)
+
+    payload = {
+        "username": "Eventry Admin Log",
+        "embeds": [
+            {
+                "title": "🔔 Autostart Triggered",
+                "color": color,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "fields": [
+                    {"name": "User", "value": user_display[:1024], "inline": False},
+                    {"name": "Keyword", "value": f"`{keyword}`", "inline": True},
+                    {"name": "Status", "value": status_text, "inline": True},
+                    {"name": "Channel", "value": f"#{channel_name or '—'}", "inline": True},
+                    {"name": "Product", "value": product_title[:256], "inline": False},
+                    {"name": "Price Breaks", "value": price_info[:256], "inline": True},
+                    {"name": "Stock", "value": stock_info[:64], "inline": True},
+                    {
+                        "name": "Product Link",
+                        "value": product_link[:512] if product_link != "—" else "—",
+                        "inline": False,
+                    },
+                    {
+                        "name": "Source Message",
+                        "value": f"[Jump to original]({message_jump_url})",
+                        "inline": False,
+                    },
+                ],
+                "footer": {"text": f"Eventry Admin Log • {timestamp_str}"},
+            }
+        ],
+    }
+
+    try:
+        response = requests.post(log_webhook_url, json=payload, timeout=10)
+        if response.status_code not in (200, 204):
+            logger.warning(
+                f"[LOG WEBHOOK] Delivery failed | Status: {response.status_code}"
+            )
+            return False
+        logger.info(f"[LOG WEBHOOK] Delivered | User: {whop_user_id} | Keyword: {keyword}")
+        return True
+    except Exception as e:
+        logger.error(f"[LOG WEBHOOK] Exception: {e}")
+        return False
