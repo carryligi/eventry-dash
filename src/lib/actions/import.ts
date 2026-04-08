@@ -73,27 +73,38 @@ export async function importBotData(formData: FormData): Promise<ImportResult> {
     result.profiles++
   }
 
-  // Import keywords
+  // Import keywords — legacy JSON may carry category_id (single) and/or channel_ids.
+  // Global keywords (neither scope) are skipped since the new schema forbids them.
   if (keywordsJson) {
     for (const [userId, keywords] of Object.entries(keywordsJson)) {
-      const rows = (keywords as Record<string, unknown>[]).map(
-        (kw: Record<string, unknown>) => ({
-          id: kw.id as string,
-          user_id: userId,
-          keyword: kw.keyword as string,
-          internal_name: (kw.internal_name as string) || null,
-          restriction_type: kw.category_id
-            ? 'category'
-            : kw.channel_ids
-              ? 'channels'
-              : 'global',
-          category_id: (kw.category_id as string) || null,
-          channel_ids: (kw.channel_ids as string[]) || null,
-          max_price: null,
+      const rows = (keywords as Record<string, unknown>[])
+        .map((kw: Record<string, unknown>) => {
+          const channelIds = Array.isArray(kw.channel_ids) && kw.channel_ids.length > 0
+            ? (kw.channel_ids as string[])
+            : null
+          const legacyCategoryId = typeof kw.category_id === 'string' && kw.category_id
+            ? (kw.category_id as string)
+            : null
+          const categoryIds = legacyCategoryId ? [legacyCategoryId] : null
+
+          if (!channelIds && !categoryIds) return null // skip legacy globals
+
+          return {
+            id: kw.id as string,
+            user_id: userId,
+            keyword: kw.keyword as string,
+            internal_name: (kw.internal_name as string) || null,
+            channel_ids: channelIds,
+            category_ids: categoryIds,
+            max_price: null,
+          }
         })
-      )
-      await supabase.from('keywords').upsert(rows, { onConflict: 'id' })
-      result.keywords += rows.length
+        .filter((row): row is NonNullable<typeof row> => row !== null)
+
+      if (rows.length > 0) {
+        await supabase.from('keywords').upsert(rows, { onConflict: 'id' })
+        result.keywords += rows.length
+      }
     }
   }
 

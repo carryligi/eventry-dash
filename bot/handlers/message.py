@@ -232,17 +232,19 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                     logger.info(f"[COOLDOWN] Skip {user_id} | KW {kw.id} | Ch {cid_str}")
                     continue
 
-                # Channel/category restriction check
+                # Channel/category restriction check — OR over both scopes.
+                # A keyword must have at least one scope after the multi_category
+                # migration; defense-in-depth: both empty -> no match.
+                channel_ids = kw.channel_ids or []
+                category_ids = kw.category_ids or []
+
                 match_ok = False
-                if kw.restriction_type == "global" or (kw.channel_ids is None and kw.category_id is None):
+                if channel_ids and cid_str in [str(c) for c in channel_ids]:
                     match_ok = True
-                elif kw.channel_ids:
-                    match_ok = cid_str in [str(c) for c in kw.channel_ids]
-                elif kw.category_id:
-                    match_ok = (
-                        message.channel.category_id is not None
-                        and str(message.channel.category_id) == str(kw.category_id)
-                    )
+                elif category_ids:
+                    msg_cat = message.channel.category_id
+                    if msg_cat is not None:
+                        match_ok = str(msg_cat) in [str(c) for c in category_ids]
 
                 if match_ok:
                     keyword_matches.setdefault(kw.keyword, {}).setdefault(cid_str, []).append(

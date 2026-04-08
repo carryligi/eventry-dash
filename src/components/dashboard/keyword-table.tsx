@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Table,
   TableBody,
@@ -18,13 +18,12 @@ import {
   ArrowUp,
   ArrowDown,
   Trash2,
-  Check,
-  X,
   Pencil,
   Loader2,
 } from 'lucide-react'
-import { deleteKeywords, updateKeywordName } from '@/lib/actions/keywords'
+import { deleteKeywords } from '@/lib/actions/keywords'
 import { useAction } from '@/hooks/use-action'
+import { KeywordDialog } from './keyword-dialog'
 import type { Keyword } from '@/types'
 
 type SortField = 'keyword' | 'internal_name' | 'created_at'
@@ -35,125 +34,33 @@ interface KeywordTableProps {
   disabledKeywords: string[]
 }
 
-function InlineNameEditor({ keyword }: { keyword: Keyword }) {
-  const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(keyword.internal_name ?? '')
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  const { execute, isPending } = useAction(
-    (input: { id: string; name: string }) =>
-      updateKeywordName(input.id, input.name),
-    {
-      successMessage: 'Name updated',
-      onSuccess: () => setEditing(false),
-    },
-  )
-
-  useEffect(() => {
-    if (editing) {
-      inputRef.current?.focus()
-      inputRef.current?.select()
-    }
-  }, [editing])
-
-  const save = () => {
-    const trimmed = value.trim()
-    if (trimmed !== (keyword.internal_name ?? '')) {
-      execute({ id: keyword.id, name: trimmed })
-    } else {
-      setEditing(false)
-    }
-  }
-
-  const cancel = () => {
-    setValue(keyword.internal_name ?? '')
-    setEditing(false)
-  }
-
-  if (editing) {
-    return (
-      <div className="flex items-center gap-1">
-        <input
-          ref={inputRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); save() }
-            if (e.key === 'Escape') cancel()
-          }}
-          disabled={isPending}
-          className="h-6 w-full min-w-[80px] rounded border border-ev-border-strong bg-transparent px-1.5 text-sm text-ev-text-primary outline-none transition-colors"
-        />
-        <button
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={save}
-          className="flex items-center justify-center size-5 rounded text-ev-success transition-colors"
-        >
-          <Check className="size-3" />
-        </button>
-        <button
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={cancel}
-          className="flex items-center justify-center size-5 rounded text-ev-text-tertiary transition-colors"
-        >
-          <X className="size-3" />
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <button
-      onClick={() => setEditing(true)}
-      className={`group/edit flex items-center gap-1.5 text-left transition-colors rounded px-1 -mx-1 py-0.5 ${
-        keyword.internal_name ? 'text-ev-text-primary' : 'text-ev-text-tertiary'
-      }`}
-    >
-      <span className="truncate max-w-[140px]">
-        {keyword.internal_name || 'Add name...'}
-      </span>
-      <Pencil className="size-3 opacity-0 group-hover/edit:opacity-60 transition-opacity flex-shrink-0" />
-    </button>
-  )
-}
-
 function ScopeDisplay({ keyword }: { keyword: Keyword }) {
-  if (keyword.restriction_type === 'channels' && keyword.channel_ids?.length) {
-    return (
-      <div className="flex items-center gap-1 flex-wrap">
-        <Badge variant="outline" className="text-[10px] px-1.5 h-4">
-          Channels
-        </Badge>
-        <span
-          className="text-xs truncate max-w-[100px] text-ev-text-tertiary"
-          title={keyword.channel_ids.join(', ')}
-        >
-          {keyword.channel_ids.length} ch.
-        </span>
-      </div>
-    )
-  }
-
-  if (keyword.restriction_type === 'category' && keyword.category_id) {
-    return (
-      <div className="flex items-center gap-1">
-        <Badge variant="outline" className="text-[10px] px-1.5 h-4">
-          Category
-        </Badge>
-        <span
-          className="text-xs truncate max-w-[100px] text-ev-text-tertiary"
-          title={keyword.category_id}
-        >
-          {keyword.category_id}
-        </span>
-      </div>
-    )
-  }
-
+  const chCount = keyword.channel_ids?.length ?? 0
+  const catCount = keyword.category_ids?.length ?? 0
   return (
-    <Badge variant="secondary" className="text-[10px] px-1.5 h-4">
-      Global
-    </Badge>
+    <div className="flex items-center gap-1 flex-wrap">
+      {chCount > 0 && (
+        <Badge
+          variant="outline"
+          className="text-[10px] px-1.5 h-4"
+          title={keyword.channel_ids?.join(', ')}
+        >
+          {chCount} ch
+        </Badge>
+      )}
+      {catCount > 0 && (
+        <Badge
+          variant="outline"
+          className="text-[10px] px-1.5 h-4"
+          title={keyword.category_ids?.join(', ')}
+        >
+          {catCount} cat
+        </Badge>
+      )}
+      {chCount === 0 && catCount === 0 && (
+        <span className="text-xs text-ev-text-tertiary">—</span>
+      )}
+    </div>
   )
 }
 
@@ -162,6 +69,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
   const [sortField, setSortField] = useState<SortField>('created_at')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [editingKeyword, setEditingKeyword] = useState<Keyword | null>(null)
 
   const { execute: executeDelete, isPending } = useAction(deleteKeywords, {
     successMessage: 'Keywords deleted',
@@ -333,13 +241,16 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                   {renderSortIcon('created_at')}
                 </button>
               </TableHead>
+              <TableHead className="w-10">
+                <span className="sr-only">Actions</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="h-24 text-center text-ev-text-tertiary"
                 >
                   {search
@@ -356,7 +267,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                   <TableRow
                     key={kw.id}
                     data-state={isSelected ? 'selected' : undefined}
-                    className={`border-ev-border-subtle transition-colors ${
+                    className={`group border-ev-border-subtle transition-colors ${
                       isSelected ? 'bg-white/[0.04]' : ''
                     }`}
                   >
@@ -376,7 +287,15 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                       </span>
                     </TableCell>
                     <TableCell>
-                      <InlineNameEditor keyword={kw} />
+                      <span
+                        className={`text-sm truncate max-w-[160px] ${
+                          kw.internal_name
+                            ? 'text-ev-text-primary'
+                            : 'text-ev-text-tertiary'
+                        }`}
+                      >
+                        {kw.internal_name ?? '—'}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <ScopeDisplay keyword={kw} />
@@ -420,6 +339,16 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                         })}
                       </span>
                     </TableCell>
+                    <TableCell className="w-10">
+                      <button
+                        type="button"
+                        onClick={() => setEditingKeyword(kw)}
+                        aria-label={`Edit ${kw.keyword}`}
+                        className="flex items-center justify-center size-7 rounded-md text-ev-text-tertiary opacity-60 hover:opacity-100 hover:bg-white/[0.05] transition-all"
+                      >
+                        <Pencil className="size-3.5" />
+                      </button>
+                    </TableCell>
                   </TableRow>
                 )
               })
@@ -427,6 +356,16 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
           </TableBody>
         </Table>
       </div>
+
+      {/* Edit dialog — rendered once, controlled by editingKeyword */}
+      <KeywordDialog
+        keyword={editingKeyword ?? undefined}
+        open={!!editingKeyword}
+        onOpenChange={(next) => {
+          if (!next) setEditingKeyword(null)
+        }}
+        trigger={null}
+      />
     </div>
   )
 }

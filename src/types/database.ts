@@ -111,38 +111,35 @@ export type Database = {
       }
       keywords: {
         Row: {
-          category_id: string | null
+          category_ids: string[] | null
           channel_ids: string[] | null
           created_at: string
           id: string
           internal_name: string | null
           keyword: string
           max_price: number | null
-          restriction_type: string
           updated_at: string
           user_id: string
         }
         Insert: {
-          category_id?: string | null
+          category_ids?: string[] | null
           channel_ids?: string[] | null
           created_at?: string
           id?: string
           internal_name?: string | null
           keyword: string
           max_price?: number | null
-          restriction_type?: string
           updated_at?: string
           user_id: string
         }
         Update: {
-          category_id?: string | null
+          category_ids?: string[] | null
           channel_ids?: string[] | null
           created_at?: string
           id?: string
           internal_name?: string | null
           keyword?: string
           max_price?: number | null
-          restriction_type?: string
           updated_at?: string
           user_id?: string
         }

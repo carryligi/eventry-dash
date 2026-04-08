@@ -1,9 +1,20 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Input } from '@/components/ui/input'
-import { Hash, Volume2, Megaphone, ChevronDown, X, Search, Loader2, AlertCircle } from 'lucide-react'
-import type { DiscordChannelsResponse, DiscordTextChannel } from '@/types'
+import {
+  Hash,
+  Volume2,
+  Megaphone,
+  FolderOpen,
+  ChevronDown,
+  X,
+  Search,
+  Loader2,
+  AlertCircle,
+} from 'lucide-react'
+import type { DiscordCategory, DiscordTextChannel } from '@/types'
+import { useDiscordChannels } from './use-discord-channels'
 
 // The category whitelist lives server-side in app_settings.allowed_category_ids
 // (see /api/discord/channels/route.ts). This component just renders what the
@@ -27,44 +38,15 @@ function ChannelIcon({ type, className }: { type: number; className?: string }) 
   }
 }
 
-export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: DiscordChannelPickerProps) {
-  const [data, setData] = useState<DiscordChannelsResponse | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+export function DiscordChannelPicker({
+  mode,
+  selectedIds,
+  onSelectionChange,
+}: DiscordChannelPickerProps) {
+  const { data, loading, error, reload } = useDiscordChannels()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const cacheRef = useRef<DiscordChannelsResponse | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
-
-  const fetchChannels = useCallback(async () => {
-    if (cacheRef.current) {
-      setData(cacheRef.current)
-      return
-    }
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/discord/channels')
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || `Failed to load channels (${res.status})`)
-      }
-      const json: DiscordChannelsResponse = await res.json()
-      cacheRef.current = json
-      setData(json)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load channels')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  // Fetch when dropdown opens
-  useEffect(() => {
-    if (open && !data && !loading && !error) {
-      fetchChannels()
-    }
-  }, [open, data, loading, error, fetchChannels])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -78,42 +60,12 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  // API already filters to whitelisted categories (server-side, driven by
-  // app_settings.allowed_category_ids). 'uncategorized' is always empty.
-  const allowedCategories = data?.categories ?? []
-
-  // Get all channels flat for lookup.
+  // API already filters to whitelisted categories.
+  const allowedCategories: DiscordCategory[] = data?.categories ?? []
   const allChannels: DiscordTextChannel[] = allowedCategories.flatMap((c) => c.channels)
-
-  const selectedNames = selectedIds
-    .map((id) => allChannels.find((ch) => ch.id === id))
-    .filter(Boolean) as DiscordTextChannel[]
-
-  // Search filtering (shared)
   const searchLower = search.toLowerCase()
 
-  const filteredCategories = allowedCategories
-    .map((cat) => {
-      const categoryMatches = searchLower && cat.name.toLowerCase().includes(searchLower)
-      return {
-        ...cat,
-        channels: categoryMatches
-          ? cat.channels // show all channels if category name matches
-          : cat.channels.filter((ch) =>
-              ch.name.toLowerCase().includes(searchLower),
-            ),
-      }
-    })
-    .filter((cat) => cat.channels.length > 0)
-
-  // For category mode: filter categories themselves (already restricted to allowed list)
-  const filteredCategoryList = allowedCategories.filter((cat) =>
-    cat.name.toLowerCase().includes(searchLower),
-  )
-
-  const selectedCategory = allowedCategories.find((cat) => cat.id === selectedIds[0])
-
-  const toggleChannel = (id: string) => {
+  const toggle = (id: string) => {
     if (selectedIds.includes(id)) {
       onSelectionChange(selectedIds.filter((s) => s !== id))
     } else {
@@ -121,12 +73,15 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
     }
   }
 
-  const removeChannel = (id: string) => {
-    onSelectionChange(selectedIds.filter((s) => s !== id))
-  }
-
-  // Category mode -- custom searchable single-select
+  // ─── CATEGORY MODE — multi-select with checkboxes ───────────────────────
   if (mode === 'category') {
+    const filteredCategories = allowedCategories.filter((cat) =>
+      cat.name.toLowerCase().includes(searchLower),
+    )
+    const selectedCategories = selectedIds
+      .map((id) => allowedCategories.find((cat) => cat.id === id))
+      .filter(Boolean) as DiscordCategory[]
+
     return (
       <div className="space-y-2" ref={dropdownRef}>
         {/* Trigger button */}
@@ -134,11 +89,13 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
           type="button"
           onClick={() => setOpen(!open)}
           className={`flex w-full items-center justify-between gap-1.5 rounded-lg border border-ev-border-default bg-white/[0.03] py-2 px-2.5 text-sm transition-colors outline-none ${
-            selectedCategory ? 'text-ev-text-primary' : 'text-ev-text-tertiary'
+            selectedIds.length > 0 ? 'text-ev-text-primary' : 'text-ev-text-tertiary'
           }`}
         >
           <span className="truncate">
-            {selectedCategory ? selectedCategory.name : 'Select category...'}
+            {selectedIds.length === 0
+              ? 'Select categories...'
+              : `${selectedIds.length} categor${selectedIds.length === 1 ? 'y' : 'ies'} selected`}
           </span>
           <ChevronDown
             className={`size-4 flex-shrink-0 text-ev-text-tertiary transition-transform duration-200 ${
@@ -147,10 +104,31 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
           />
         </button>
 
+        {/* Selected chips */}
+        {selectedCategories.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {selectedCategories.map((cat) => (
+              <span
+                key={cat.id}
+                className="inline-flex items-center gap-1 rounded-md bg-ev-tertiary px-2 py-0.5 text-xs font-medium text-ev-text-secondary"
+              >
+                <FolderOpen className="size-3" />
+                {cat.name}
+                <button
+                  type="button"
+                  onClick={() => toggle(cat.id)}
+                  className="ml-0.5 rounded-sm text-ev-text-tertiary transition-colors"
+                >
+                  <X className="size-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Dropdown */}
         {open && (
           <div className="rounded-lg border border-ev-border-default bg-ev-secondary shadow-lg overflow-hidden">
-            {/* Search */}
             <div className="flex items-center gap-2 px-3 py-2 border-b border-ev-border-subtle">
               <Search className="size-3.5 flex-shrink-0 text-ev-text-tertiary" />
               <input
@@ -177,7 +155,7 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
                   <span className="text-xs text-center text-ev-error">{error}</span>
                   <button
                     type="button"
-                    onClick={() => { cacheRef.current = null; fetchChannels() }}
+                    onClick={() => reload()}
                     className="text-xs underline text-ev-text-accent"
                   >
                     Retry
@@ -185,7 +163,7 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
                 </div>
               )}
 
-              {data && filteredCategoryList.length === 0 && (
+              {data && filteredCategories.length === 0 && (
                 <div className="py-6 text-center">
                   <span className="text-xs text-ev-text-tertiary">
                     {search ? 'No categories match your search' : 'No categories found'}
@@ -193,38 +171,46 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
                 </div>
               )}
 
-              {filteredCategoryList.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => {
-                    onSelectionChange([cat.id])
-                    setOpen(false)
-                    setSearch('')
-                  }}
-                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors duration-150 hover:bg-white/[0.03] ${
-                    selectedIds[0] === cat.id
-                      ? 'text-ev-text-primary bg-white/[0.04]'
-                      : 'text-ev-text-secondary'
-                  }`}
-                >
-                  <div
-                    className={`flex items-center justify-center size-4 rounded-full border flex-shrink-0 transition-colors ${
-                      selectedIds[0] === cat.id
-                        ? 'border-ev-text-accent bg-ev-text-accent'
-                        : 'border-ev-border-default bg-transparent'
+              {filteredCategories.map((cat) => {
+                const selected = selectedIds.includes(cat.id)
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => toggle(cat.id)}
+                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors duration-150 hover:bg-white/[0.03] ${
+                      selected
+                        ? 'text-ev-text-primary bg-white/[0.04]'
+                        : 'text-ev-text-secondary'
                     }`}
                   >
-                    {selectedIds[0] === cat.id && (
-                      <div className="size-1.5 rounded-full bg-white" />
-                    )}
-                  </div>
-                  <span className="truncate">{cat.name}</span>
-                  <span className="ml-auto text-xs text-ev-text-tertiary">
-                    {cat.channels.length} ch.
-                  </span>
-                </button>
-              ))}
+                    <div
+                      className={`flex items-center justify-center size-4 rounded border flex-shrink-0 transition-colors ${
+                        selected
+                          ? 'border-ev-text-accent bg-ev-text-accent'
+                          : 'border-ev-border-default bg-transparent'
+                      }`}
+                    >
+                      {selected && (
+                        <svg
+                          className="size-3"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          stroke="white"
+                          strokeWidth="2"
+                        >
+                          <path d="M2.5 6l2.5 2.5 4.5-5" />
+                        </svg>
+                      )}
+                    </div>
+                    <FolderOpen className="size-3.5 flex-shrink-0 text-muted-foreground" />
+                    <span className="truncate">{cat.name}</span>
+                    <span className="ml-auto text-xs text-ev-text-tertiary">
+                      {cat.channels.length} ch.
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
@@ -232,9 +218,13 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
         {/* Manual fallback when API fails */}
         {error && !open && (
           <Input
-            placeholder="Or enter category ID manually"
-            value={selectedIds[0] ?? ''}
-            onChange={(e) => onSelectionChange(e.target.value ? [e.target.value] : [])}
+            placeholder="Or enter category IDs manually (comma-separated)"
+            value={selectedIds.join(', ')}
+            onChange={(e) =>
+              onSelectionChange(
+                e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
+              )
+            }
             className="text-sm"
           />
         )}
@@ -242,7 +232,23 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
     )
   }
 
-  // Channels mode -- custom multi-select
+  // ─── CHANNELS MODE — multi-select ─────────────────────────────────────────
+  const selectedChannels = selectedIds
+    .map((id) => allChannels.find((ch) => ch.id === id))
+    .filter(Boolean) as DiscordTextChannel[]
+
+  const filteredCategoriesForChannels = allowedCategories
+    .map((cat) => {
+      const categoryMatches = searchLower && cat.name.toLowerCase().includes(searchLower)
+      return {
+        ...cat,
+        channels: categoryMatches
+          ? cat.channels
+          : cat.channels.filter((ch) => ch.name.toLowerCase().includes(searchLower)),
+      }
+    })
+    .filter((cat) => cat.channels.length > 0)
+
   return (
     <div className="space-y-2" ref={dropdownRef}>
       {/* Trigger button */}
@@ -266,9 +272,9 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
       </button>
 
       {/* Selected chips */}
-      {selectedNames.length > 0 && (
+      {selectedChannels.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {selectedNames.map((ch) => (
+          {selectedChannels.map((ch) => (
             <span
               key={ch.id}
               className="inline-flex items-center gap-1 rounded-md bg-ev-tertiary px-2 py-0.5 text-xs font-medium text-ev-text-secondary"
@@ -277,7 +283,7 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
               {ch.name}
               <button
                 type="button"
-                onClick={() => removeChannel(ch.id)}
+                onClick={() => toggle(ch.id)}
                 className="ml-0.5 rounded-sm text-ev-text-tertiary transition-colors"
               >
                 <X className="size-3" />
@@ -290,7 +296,6 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
       {/* Dropdown */}
       {open && (
         <div className="rounded-lg border border-ev-border-default bg-ev-secondary shadow-lg overflow-hidden">
-          {/* Search */}
           <div className="flex items-center gap-2 px-3 py-2 border-b border-ev-border-subtle">
             <Search className="size-3.5 flex-shrink-0 text-ev-text-tertiary" />
             <input
@@ -303,7 +308,6 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
             />
           </div>
 
-          {/* Channel list */}
           <div className="max-h-56 overflow-y-auto">
             {loading && (
               <div className="flex items-center justify-center gap-2 py-6">
@@ -318,7 +322,7 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
                 <span className="text-xs text-center text-ev-error">{error}</span>
                 <button
                   type="button"
-                  onClick={() => { cacheRef.current = null; fetchChannels() }}
+                  onClick={() => reload()}
                   className="text-xs underline text-ev-text-accent"
                 >
                   Retry
@@ -326,7 +330,7 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
               </div>
             )}
 
-            {data && filteredCategories.length === 0 && (
+            {data && filteredCategoriesForChannels.length === 0 && (
               <div className="py-6 text-center">
                 <span className="text-xs text-ev-text-tertiary">
                   {search ? 'No channels match your search' : 'No channels found'}
@@ -334,8 +338,7 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
               </div>
             )}
 
-            {/* Categorized channels */}
-            {filteredCategories.map((cat) => (
+            {filteredCategoriesForChannels.map((cat) => (
               <div key={cat.id}>
                 <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-ev-text-tertiary">
                   {cat.name}
@@ -345,7 +348,7 @@ export function DiscordChannelPicker({ mode, selectedIds, onSelectionChange }: D
                     key={ch.id}
                     channel={ch}
                     selected={selectedIds.includes(ch.id)}
-                    onToggle={() => toggleChannel(ch.id)}
+                    onToggle={() => toggle(ch.id)}
                   />
                 ))}
               </div>
@@ -388,7 +391,6 @@ function ChannelRow({
         selected ? 'text-ev-text-primary bg-white/[0.04]' : 'text-ev-text-secondary'
       }`}
     >
-      {/* Checkbox */}
       <div
         className={`flex items-center justify-center size-4 rounded border flex-shrink-0 transition-colors ${
           selected
@@ -403,7 +405,6 @@ function ChannelRow({
         )}
       </div>
 
-      {/* Channel icon + name */}
       <ChannelIcon type={channel.type} className="size-3.5 flex-shrink-0 text-muted-foreground" />
       <span className="truncate">{channel.name}</span>
     </button>

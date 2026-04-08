@@ -22,9 +22,8 @@ export interface Keyword {
   user_id: string
   keyword: string
   internal_name: string | null
-  restriction_type: 'global' | 'channels' | 'category'
   channel_ids: string[] | null
-  category_id: string | null
+  category_ids: string[] | null
   max_price: number | null
   created_at: string
   updated_at: string

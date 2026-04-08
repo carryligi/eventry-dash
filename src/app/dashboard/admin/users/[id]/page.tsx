@@ -599,9 +599,21 @@ export default async function AdminUserDetailPage({
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className="text-xs capitalize">
-                      {kw.restriction_type}
-                    </Badge>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {kw.channel_ids?.length ? (
+                        <Badge variant="secondary" className="text-xs">
+                          {kw.channel_ids.length} ch
+                        </Badge>
+                      ) : null}
+                      {kw.category_ids?.length ? (
+                        <Badge variant="secondary" className="text-xs">
+                          {kw.category_ids.length} cat
+                        </Badge>
+                      ) : null}
+                      {!kw.channel_ids?.length && !kw.category_ids?.length && (
+                        <span className="text-xs text-ev-text-tertiary">—</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <span

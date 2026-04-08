@@ -2,7 +2,7 @@ import { getUserId } from '@/lib/auth'
 import { createServerClient } from '@/lib/supabase/server'
 import { TopBar } from '@/components/dashboard/top-bar'
 import { KeywordTable } from '@/components/dashboard/keyword-table'
-import { AddKeywordDialog } from '@/components/dashboard/add-keyword-dialog'
+import { KeywordDialog } from '@/components/dashboard/keyword-dialog'
 
 export default async function KeywordsPage() {
   const userId = await getUserId()
@@ -33,7 +33,7 @@ export default async function KeywordsPage() {
             {keywords?.length ?? 0} keyword
             {(keywords?.length ?? 0) !== 1 ? 's' : ''} configured
           </p>
-          <AddKeywordDialog />
+          <KeywordDialog />
         </div>
         <KeywordTable
           keywords={keywords ?? []}

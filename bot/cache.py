@@ -292,9 +292,8 @@ def _row_to_keyword(row: dict) -> Keyword:
         user_id=row["user_id"],
         keyword=row["keyword"],
         internal_name=row.get("internal_name"),
-        restriction_type=row.get("restriction_type", "global"),
         channel_ids=row.get("channel_ids"),
-        category_id=row.get("category_id"),
+        category_ids=row.get("category_ids"),
         max_price=float(row["max_price"]) if row.get("max_price") is not None else None,
     )
 

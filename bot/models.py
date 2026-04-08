@@ -8,9 +8,8 @@ class Keyword:
     user_id: str
     keyword: str
     internal_name: Optional[str] = None
-    restriction_type: str = "global"  # global | channels | category
     channel_ids: Optional[list[str]] = None
-    category_id: Optional[str] = None
+    category_ids: Optional[list[str]] = None
     max_price: Optional[float] = None
 
 

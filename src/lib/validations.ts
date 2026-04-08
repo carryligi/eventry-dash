@@ -2,21 +2,53 @@ import { z } from 'zod'
 
 // ── Keywords ──
 
-export const addKeywordsSchema = z.object({
-  keywords: z
-    .string()
-    .min(1, 'Mindestens ein Keyword eingeben'),
-  restriction_type: z.enum(['global', 'channels', 'category']).default('global'),
-  internal_name: z.string().optional(),
-  max_price: z
-    .union([z.coerce.number().positive('Preis muss positiv sein'), z.literal(''), z.nan()])
-    .optional()
-    .transform(v => (typeof v === 'number' && !isNaN(v) ? v : undefined)),
-  channel_ids: z.string().optional(),
-  category_id: z.string().optional(),
-})
+const maxPriceField = z
+  .union([z.coerce.number().positive('Preis muss positiv sein'), z.literal(''), z.nan()])
+  .optional()
+  .transform(v => (typeof v === 'number' && !isNaN(v) ? v : undefined))
+
+const scopeNotEmpty = (data: { channel_ids?: string; category_ids?: string }, ctx: z.RefinementCtx) => {
+  const hasChannels = !!data.channel_ids
+    ?.split(',')
+    .map(s => s.trim())
+    .filter(Boolean).length
+  const hasCats = !!data.category_ids
+    ?.split(',')
+    .map(s => s.trim())
+    .filter(Boolean).length
+  if (!hasChannels && !hasCats) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Mindestens ein Channel oder eine Kategorie auswaehlen',
+      path: ['channel_ids'],
+    })
+  }
+}
+
+export const addKeywordsSchema = z
+  .object({
+    keywords: z.string().min(1, 'Mindestens ein Keyword eingeben'),
+    internal_name: z.string().optional(),
+    max_price: maxPriceField,
+    channel_ids: z.string().optional(),
+    category_ids: z.string().optional(),
+  })
+  .superRefine(scopeNotEmpty)
 
 export type AddKeywordsInput = z.infer<typeof addKeywordsSchema>
+
+export const updateKeywordSchema = z
+  .object({
+    id: z.string().min(1),
+    keyword: z.string().min(1, 'Keyword darf nicht leer sein'),
+    internal_name: z.string().optional(),
+    max_price: maxPriceField,
+    channel_ids: z.string().optional(),
+    category_ids: z.string().optional(),
+  })
+  .superRefine(scopeNotEmpty)
+
+export type UpdateKeywordInput = z.infer<typeof updateKeywordSchema>
 
 // ── Pinger ──
 
