@@ -2,86 +2,58 @@
 
 import { ArrowRight, LogIn } from 'lucide-react'
 import { loginWithWhop } from '@/lib/auth-client'
+import { Logo } from '@/components/shared/logo'
 
 export function Hero() {
   return (
-    <section className="relative flex min-h-svh items-center justify-center overflow-hidden">
-      {/* Hero content */}
-      <div className="relative z-10 mx-auto max-w-3xl px-6 text-center">
-        {/* Intro pill */}
-        <div
-          className="glass-panel mb-8 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5"
-          style={{
-            color: 'var(--text-tertiary)',
-          }}
-        >
-          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: 'var(--success)' }} />
-          <span className="text-xs font-medium tracking-wide uppercase">
-            Discord keyword monitoring
-          </span>
-        </div>
+    <section className="relative flex min-h-svh items-center justify-center overflow-hidden px-6">
+      {/* Subtle radial glow */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 60% 40% at 50% 45%, color-mix(in oklab, var(--accent-start) 12%, transparent), transparent 70%)',
+        }}
+      />
 
-        {/* Headline */}
+      <div className="relative z-10 flex flex-col items-center text-center">
+        {/* Logo */}
+        <Logo size={88} className="mb-9 drop-shadow-[0_8px_24px_rgba(0,0,0,0.35)]" />
+
+        {/* Wordmark */}
         <h1
-          className="text-4xl font-semibold leading-[1.08] tracking-[-0.03em] sm:text-5xl md:text-6xl"
+          className="text-5xl font-semibold leading-[1.05] tracking-[-0.035em] sm:text-6xl md:text-7xl"
           style={{ color: 'var(--text-primary)' }}
         >
-          Monitor. Alert.{' '}
+          Eventry{' '}
           <span
             className="bg-clip-text text-transparent"
             style={{
-              backgroundImage: 'linear-gradient(135deg, var(--accent-start), var(--accent-end))',
+              backgroundImage:
+                'linear-gradient(135deg, var(--accent-start), var(--accent-end))',
             }}
           >
-            Autostart.
+            Keywords
           </span>
         </h1>
 
-        {/* Subheading */}
-        <p
-          className="mx-auto mt-5 max-w-lg text-base leading-relaxed sm:text-lg"
-          style={{ color: 'var(--text-secondary)' }}
+        {/* Login with Whop */}
+        <button
+          type="button"
+          onClick={loginWithWhop}
+          className="group mt-12 flex h-11 items-center gap-2.5 rounded-full px-7 text-sm font-medium transition-opacity duration-200 hover:opacity-88"
+          style={{
+            background:
+              'linear-gradient(135deg, var(--accent-start), var(--accent-end))',
+            color: '#000000',
+          }}
         >
-          Track keywords across Discord servers. Get instant push notifications. Automatically start tasks when it matters.
-        </p>
-
-        {/* CTA buttons */}
-        <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          {/* Primary CTA */}
-          <button
-            onClick={loginWithWhop}
-            className="group flex h-10 items-center gap-2.5 rounded-full px-6 text-sm font-medium transition-opacity duration-200 hover:opacity-88"
-            style={{
-              background: 'linear-gradient(135deg, var(--accent-start), var(--accent-end))',
-              color: '#000000',
-            }}
-          >
-            <LogIn className="h-4 w-4 opacity-70" />
-            Get Started
-            <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-          </button>
-
-          {/* Secondary CTA */}
-          <a
-            href="#features"
-            className="glass-button flex h-10 items-center gap-2 rounded-full px-6 text-sm font-medium transition-colors"
-            style={{
-              color: 'var(--text-secondary)',
-            }}
-          >
-            See how it works
-          </a>
-        </div>
+          <LogIn className="h-4 w-4 opacity-75" />
+          Login with Whop
+          <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+        </button>
       </div>
-
-      {/* Bottom fade to next section */}
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-32"
-        aria-hidden="true"
-        style={{
-          background: 'linear-gradient(to bottom, transparent, var(--bg-root))',
-        }}
-      />
     </section>
   )
 }
