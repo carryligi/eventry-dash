@@ -39,8 +39,20 @@ async def on_ready():
     # Load all settings from Supabase into RAM
     await cache.load_all()
 
-    # Subscribe to Realtime changes (instant cache updates)
-    await cache.subscribe()
+    # Subscribe to Realtime changes (instant cache updates). Wrapped in
+    # try/except so a startup hiccup doesn't prevent the bot from handling
+    # Discord messages — the watchdog will try to reconnect on the next
+    # 1006 signal anyway.
+    try:
+        await cache.subscribe()
+    except Exception as e:
+        logger.error(f"Realtime subscribe failed on startup: {e}", exc_info=True)
+
+    # Start the Realtime watchdog. on_ready can fire multiple times when
+    # discord.py reconnects, so only start a new task if the previous one
+    # is absent or already finished.
+    if cache._watchdog_task is None or cache._watchdog_task.done():
+        cache._watchdog_task = asyncio.create_task(cache.watchdog())
 
     bot_start_time = discord.utils.utcnow()
     logger.info(f"Bot ready: {bot.user} | Guild: {GUILD_ID}")

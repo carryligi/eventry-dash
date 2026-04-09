@@ -37,3 +37,20 @@ async def get_async_supabase() -> AsyncClient:
     if _async_client is None:
         _async_client = await create_async_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
     return _async_client
+
+
+async def reset_async_supabase() -> AsyncClient:
+    """Teardown the existing async client completely and create a fresh one.
+
+    Used by the Realtime watchdog when WebSocket 1006 leaves the socket dead
+    but reports channels as SUBSCRIBED (silent event loss). A new client is
+    returned so callers can immediately re-subscribe.
+    """
+    global _async_client
+    if _async_client is not None:
+        try:
+            await _async_client.realtime.close()
+        except Exception:
+            pass
+        _async_client = None
+    return await get_async_supabase()

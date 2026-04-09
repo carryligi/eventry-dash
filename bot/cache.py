@@ -17,9 +17,48 @@ from models import (
     Keyword, PingerSettings, SilentlySettings,
     PushoverSettings, WebhookSettings, AppSettings,
 )
-from config import supabase, get_async_supabase, SUPABASE_SERVICE_ROLE_KEY
+from config import supabase, get_async_supabase, reset_async_supabase, SUPABASE_SERVICE_ROLE_KEY
 
 logger = logging.getLogger(__name__)
+
+
+class _RealtimeCloseDetector(logging.Handler):
+    """Listens on the 'realtime._async.client' logger for abnormal WebSocket
+    closes (code 1006) and signals the watchdog via an asyncio.Event.
+
+    The Supabase realtime-py library does not expose a Python-level callback
+    for these closures — it only logs them at ERROR level. This handler
+    filters those log records and schedules the Event to be set on the
+    bot's asyncio loop (logging handlers can fire from any thread).
+
+    `cache_ref` is a weakref-like direct reference back to the BotCache so
+    we can skip log events that fire as a side-effect of our own intentional
+    client teardown inside _full_reconnect().
+    """
+
+    def __init__(self, event: asyncio.Event, loop: asyncio.AbstractEventLoop, cache_ref):
+        super().__init__(level=logging.ERROR)
+        self._event = event
+        self._loop = loop
+        self._cache_ref = cache_ref
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            msg = record.getMessage()
+        except Exception:
+            return
+        if "WebSocket connection closed" not in msg:
+            return
+        # Skip if we're already in the middle of a deliberate teardown — the
+        # close we're seeing is our own doing, not a new failure.
+        if getattr(self._cache_ref, "_reconnecting", False):
+            return
+        # asyncio.Event is not thread-safe; schedule set() on the loop.
+        try:
+            self._loop.call_soon_threadsafe(self._event.set)
+        except RuntimeError:
+            # Loop is closed — bot is shutting down, nothing to do.
+            pass
 
 
 class BotCache:
@@ -58,29 +97,55 @@ class BotCache:
         self._lock = asyncio.Lock()
         self._realtime_channels = []
 
+        # Watchdog state — see watchdog() and _full_reconnect().
+        # _reconnect_needed is set by _RealtimeCloseDetector when a 1006
+        # WebSocket close is detected in the realtime library's logs, and
+        # the watchdog task wakes up to do a full client teardown.
+        # _reconnecting is a guard that tells the detector to ignore close
+        # log lines caused by our own intentional teardown.
+        self._reconnect_needed: asyncio.Event = asyncio.Event()
+        self._reconnecting: bool = False
+        self._watchdog_task: Optional[asyncio.Task] = None
+
     # ── Initial full load ────────────────────────────────────────────────
+    #
+    # All _load_* methods accept an optional `target` parameter. At startup
+    # they load directly into `self` (target is None -> self). During a
+    # Realtime reconnect (_reload_atomic), they load into a temporary
+    # holder object so the fresh state can be atomically swapped in without
+    # on_message ever seeing a partially populated cache.
 
-    async def load_all(self):
-        """Load everything from Supabase into RAM. Called once at startup."""
-        await asyncio.gather(
-            self._load_profiles(),
-            self._load_keywords(),
-            self._load_pinger(),
-            self._load_silently(),
-            self._load_pushover(),
-            self._load_webhooks(),
-            self._load_disabled_keywords(),
-            self._load_cooldowns(),
-            self._load_app_settings(),
-        )
+    async def load_all(self, target: Optional["BotCache"] = None):
+        """Load everything from Supabase into RAM.
+
+        Called once at startup (target=None -> loads into self) and also
+        by _reload_atomic() during Realtime reconnects (target=tmp holder).
+        Note: _load_cooldowns is only called when target is self — cooldowns
+        are managed in-memory by the bot and should not be re-loaded on
+        reconnect (would wipe in-flight state).
+        """
+        dst = target if target is not None else self
+        loaders = [
+            self._load_profiles(dst),
+            self._load_keywords(dst),
+            self._load_pinger(dst),
+            self._load_silently(dst),
+            self._load_pushover(dst),
+            self._load_webhooks(dst),
+            self._load_disabled_keywords(dst),
+            self._load_app_settings(dst),
+        ]
+        if target is None:
+            loaders.append(self._load_cooldowns(dst))
+        await asyncio.gather(*loaders)
         logger.info(
-            f"Cache loaded: {sum(len(v) for v in self.keywords.values())} keywords, "
-            f"{len(self.pinger)} pinger, {len(self.silently)} silently, "
-            f"{len(self.pushover)} pushover, {len(self.webhooks)} webhooks, "
-            f"{len(self.discord_id_by_whop)} discord mappings"
+            f"Cache loaded: {sum(len(v) for v in dst.keywords.values())} keywords, "
+            f"{len(dst.pinger)} pinger, {len(dst.silently)} silently, "
+            f"{len(dst.pushover)} pushover, {len(dst.webhooks)} webhooks, "
+            f"{len(dst.discord_id_by_whop)} discord mappings"
         )
 
-    async def _load_profiles(self):
+    async def _load_profiles(self, target):
         data = (
             supabase.table("profiles")
             .select("id, discord_user_id, username")
@@ -88,53 +153,53 @@ class BotCache:
             .data
             or []
         )
-        self.discord_id_by_whop.clear()
-        self.username_by_whop.clear()
+        target.discord_id_by_whop.clear()
+        target.username_by_whop.clear()
         for row in data:
             wid = row["id"]
             if row.get("discord_user_id"):
-                self.discord_id_by_whop[wid] = row["discord_user_id"]
+                target.discord_id_by_whop[wid] = row["discord_user_id"]
             if row.get("username"):
-                self.username_by_whop[wid] = row["username"]
+                target.username_by_whop[wid] = row["username"]
 
-    async def _load_keywords(self):
+    async def _load_keywords(self, target):
         data = supabase.table("keywords").select("*").execute().data or []
-        self.keywords.clear()
+        target.keywords.clear()
         for row in data:
             kw = _row_to_keyword(row)
-            self.keywords[kw.user_id].append(kw)
+            target.keywords[kw.user_id].append(kw)
 
-    async def _load_pinger(self):
+    async def _load_pinger(self, target):
         data = supabase.table("pinger_settings").select("*").execute().data or []
-        self.pinger = {r["user_id"]: _row_to_pinger(r) for r in data}
+        target.pinger = {r["user_id"]: _row_to_pinger(r) for r in data}
 
-    async def _load_silently(self):
+    async def _load_silently(self, target):
         data = supabase.table("silently_settings").select("*").execute().data or []
-        self.silently = {r["user_id"]: _row_to_silently(r) for r in data}
+        target.silently = {r["user_id"]: _row_to_silently(r) for r in data}
 
-    async def _load_pushover(self):
+    async def _load_pushover(self, target):
         data = supabase.table("pushover_settings").select("*").execute().data or []
-        self.pushover = {r["user_id"]: _row_to_pushover(r) for r in data}
+        target.pushover = {r["user_id"]: _row_to_pushover(r) for r in data}
 
-    async def _load_webhooks(self):
+    async def _load_webhooks(self, target):
         data = supabase.table("webhook_settings").select("*").execute().data or []
-        self.webhooks = {r["user_id"]: _row_to_webhook(r) for r in data}
+        target.webhooks = {r["user_id"]: _row_to_webhook(r) for r in data}
 
-    async def _load_disabled_keywords(self):
+    async def _load_disabled_keywords(self, target):
         data = supabase.table("autostart_disabled_keywords").select("*").execute().data or []
-        self.disabled_keywords.clear()
-        self._disabled_id_map.clear()
+        target.disabled_keywords.clear()
+        target._disabled_id_map.clear()
         for row in data:
             uid = row["user_id"]
             kw = row["keyword"]
             rid = row.get("id")
-            self.disabled_keywords[uid].add(kw)
+            target.disabled_keywords[uid].add(kw)
             if rid:
-                self._disabled_id_map[str(rid)] = (uid, kw)
+                target._disabled_id_map[str(rid)] = (uid, kw)
 
-    async def _load_cooldowns(self):
+    async def _load_cooldowns(self, target):
         data = supabase.table("active_cooldowns").select("*").execute().data or []
-        self.active_cooldowns.clear()
+        target.active_cooldowns.clear()
         now = datetime.now(pytz.UTC)
         for row in data:
             expiry = datetime.fromisoformat(row["expires_at"])
@@ -142,32 +207,59 @@ class BotCache:
                 uid = row["user_id"]
                 cid = row["channel_id"]
                 kid = row["keyword_id"]
-                self.active_cooldowns[uid][cid][kid] = expiry
+                target.active_cooldowns[uid][cid][kid] = expiry
 
-    async def _load_app_settings(self):
+    async def _load_app_settings(self, target):
         data = supabase.table("app_settings").select("key, value").execute().data or []
+        # Fresh AppSettings for atomic swap case (so a removed key resets).
+        app = AppSettings()
         for row in data:
             key, val = row["key"], row["value"]
             if key == "silently_api_key":
-                self.app.silently_api_key = val
+                app.silently_api_key = val or ""
             elif key == "pushover_app_key":
-                self.app.pushover_app_key = val
+                app.pushover_app_key = val or ""
             elif key == "discord_bot_token":
-                self.app.discord_bot_token = val
+                app.discord_bot_token = val or ""
             elif key == "guild_id":
-                self.app.guild_id = val
+                app.guild_id = val or ""
             elif key == "autostart_log_webhook_url":
-                self.app.autostart_log_webhook_url = val or ""
+                app.autostart_log_webhook_url = val or ""
             elif key == "webhook_user_payload_template":
-                self.app.webhook_user_payload_template = val or None
+                app.webhook_user_payload_template = val or None
             elif key == "webhook_admin_payload_template":
-                self.app.webhook_admin_payload_template = val or None
+                app.webhook_admin_payload_template = val or None
+        target.app = app
 
     # ── Supabase Realtime subscriptions ──────────────────────────────────
 
     async def subscribe(self):
-        """Subscribe to Realtime changes on all config tables (async client required)."""
+        """Subscribe to Realtime changes on all config tables (async client required).
+
+        Called at startup and also from _full_reconnect() after a 1006. Safe
+        to call multiple times: channel list is rebuilt, log detector is only
+        attached once.
+        """
         async_sb = await get_async_supabase()
+
+        # Attach the 1006 detector to the realtime library logger exactly once.
+        # Doing it here (rather than __init__) means we have access to the
+        # running asyncio loop, which the log handler needs to schedule
+        # event.set() via call_soon_threadsafe.
+        rt_logger = logging.getLogger("realtime._async.client")
+        if not any(isinstance(h, _RealtimeCloseDetector) for h in rt_logger.handlers):
+            try:
+                loop = asyncio.get_running_loop()
+                rt_logger.addHandler(
+                    _RealtimeCloseDetector(self._reconnect_needed, loop, self)
+                )
+                logger.info("Realtime close-detector attached to library logger")
+            except RuntimeError:
+                logger.warning("No running loop when attaching close-detector")
+
+        # Reset the channel list — _full_reconnect may have cleared it, but
+        # a fresh startup also expects a clean list.
+        self._realtime_channels = []
 
         # CRITICAL: explicitly set service_role token on the Realtime WebSocket,
         # otherwise Supabase may silently filter events even with permissive RLS.
@@ -212,6 +304,102 @@ class BotCache:
             await channel.subscribe(_make_status_cb(table))
             self._realtime_channels.append(channel)
             logger.info(f"Subscribed to Realtime: {table}")
+
+    # ── Watchdog + atomic reconnect ──────────────────────────────────────
+
+    async def watchdog(self):
+        """Wait for a 1006 signal, then force a full Realtime reconnect.
+
+        The detector in _RealtimeCloseDetector sets _reconnect_needed when
+        the library logs a WebSocket abnormal close. We react by tearing
+        down the entire AsyncClient and rebuilding it — the only thing that
+        reliably fixes the silent-event-loss state the library gets into
+        after 1006. Discord message handling is not affected.
+        """
+        logger.info("[Watchdog] Realtime watchdog started")
+        while True:
+            await self._reconnect_needed.wait()
+            self._reconnect_needed.clear()
+            logger.error("[Watchdog] 1006 detected — forcing full Realtime reconnect")
+            try:
+                await self._full_reconnect()
+                logger.info("[Watchdog] Realtime reconnect successful")
+            except Exception as e:
+                logger.error(f"[Watchdog] Reconnect failed: {e}", exc_info=True)
+                # Back off briefly, then retry via the same path.
+                await asyncio.sleep(5)
+                self._reconnect_needed.set()
+
+    async def _full_reconnect(self):
+        """Destroy the async client + channels, rebuild everything atomically.
+
+        Discord's on_message keeps reading from the current cache dicts the
+        whole time. Only when _reload_atomic() has finished building a full
+        fresh snapshot are the dicts swapped in under a lock. Since Python
+        dict rebinds are GIL-atomic, readers always see either the old or
+        the new snapshot — never a partially populated one.
+        """
+        # Mark reconnect in progress so _RealtimeCloseDetector ignores the
+        # close log that reset_async_supabase() may trigger below, otherwise
+        # we could get stuck in a retry loop.
+        self._reconnecting = True
+        try:
+            # Drop channel references — the old socket is dead anyway.
+            self._realtime_channels = []
+            # Hard-reset the async client (closes the socket and nulls singleton).
+            await reset_async_supabase()
+            # Build a fresh cache snapshot in a temp holder and atomic-swap.
+            await self._reload_atomic()
+            # Re-subscribe on the brand new client.
+            await self.subscribe()
+        finally:
+            self._reconnecting = False
+            # Drain any event that got set while we were busy — it would
+            # just be noise from the teardown we just performed.
+            self._reconnect_needed.clear()
+
+    async def _reload_atomic(self):
+        """Load a full fresh cache into a temporary holder, then swap.
+
+        The temp holder is a bare BotCache without __init__ side effects —
+        we only populate the data fields that get swapped (not the lock,
+        channel list, watchdog state, etc.). active_cooldowns is NOT
+        reloaded because it tracks in-flight notification state owned by
+        the bot process, not the Dashboard.
+        """
+        tmp = BotCache.__new__(BotCache)
+        tmp.keywords = defaultdict(list)
+        tmp.pinger = {}
+        tmp.silently = {}
+        tmp.pushover = {}
+        tmp.webhooks = {}
+        tmp.discord_id_by_whop = {}
+        tmp.username_by_whop = {}
+        tmp.disabled_keywords = defaultdict(set)
+        tmp._disabled_id_map = {}
+        tmp.app = AppSettings()
+        # Active cooldowns are owned by this process, not the DB — we keep
+        # the live reference and just rebind it on tmp for loader safety.
+        tmp.active_cooldowns = self.active_cooldowns
+
+        # Reuse the existing parallel loaders by passing tmp as target.
+        await self.load_all(target=tmp)
+
+        # Atomic swap. Python dict assignment is GIL-atomic, so on_message
+        # never observes a partial state. The lock only serializes parallel
+        # reconnect attempts.
+        async with self._lock:
+            self.keywords = tmp.keywords
+            self.pinger = tmp.pinger
+            self.silently = tmp.silently
+            self.pushover = tmp.pushover
+            self.webhooks = tmp.webhooks
+            self.discord_id_by_whop = tmp.discord_id_by_whop
+            self.username_by_whop = tmp.username_by_whop
+            self.disabled_keywords = tmp.disabled_keywords
+            self._disabled_id_map = tmp._disabled_id_map
+            self.app = tmp.app
+        logger.info("[Watchdog] Cache atomically swapped to fresh state")
 
     # ── Payload helper ───────────────────────────────────────────────────
     # Supabase Realtime v2 delivers payloads as:
@@ -341,7 +529,7 @@ class BotCache:
                         f"cache may be stale, triggering reload"
                     )
                     # Best-effort resync: reload from DB on next tick
-                    asyncio.create_task(self._load_disabled_keywords())
+                    asyncio.create_task(self._load_disabled_keywords(self))
                     return
                 uid, kw = mapped
                 self.disabled_keywords[uid].discard(kw)
