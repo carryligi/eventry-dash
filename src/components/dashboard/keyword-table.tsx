@@ -31,12 +31,83 @@ import {
   Pencil,
   Loader2,
   Globe,
+  Folder,
 } from 'lucide-react'
 import { deleteKeywords } from '@/lib/actions/keywords'
 import { toggleKeywordAutostart } from '@/lib/actions/silently'
 import { useAction } from '@/hooks/use-action'
 import { KeywordDialog } from './keyword-dialog'
+import { useDiscordChannels } from './use-discord-channels'
 import type { Keyword } from '@/types'
+
+const MAX_BADGES = 3
+
+function ScopeBadges({
+  channelIds,
+  categoryIds,
+  channelNameMap,
+  categoryNameMap,
+}: {
+  channelIds: string[]
+  categoryIds: string[]
+  channelNameMap: Map<string, string>
+  categoryNameMap: Map<string, string>
+}) {
+  const channels = channelIds.map((id) => ({
+    id,
+    name: channelNameMap.get(id) ?? id.slice(-4),
+  }))
+  const categories = categoryIds.map((id) => ({
+    id,
+    name: categoryNameMap.get(id) ?? id.slice(-4),
+  }))
+
+  const visibleChannels = channels.slice(0, MAX_BADGES)
+  const visibleCategories = categories.slice(0, MAX_BADGES)
+  const extraChannels = channels.slice(MAX_BADGES)
+  const extraCategories = categories.slice(MAX_BADGES)
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {visibleCategories.map((cat) => (
+        <span
+          key={`cat-${cat.id}`}
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-ev-border-subtle bg-white/[0.03] text-[10px] font-medium uppercase tracking-wide text-ev-text-secondary"
+          title={`Category: ${cat.name}`}
+        >
+          <Folder className="size-2.5" />
+          {cat.name}
+        </span>
+      ))}
+      {extraCategories.length > 0 && (
+        <span
+          className="inline-flex items-center px-1.5 py-0.5 rounded border border-ev-border-subtle bg-white/[0.03] text-[10px] font-medium text-ev-text-tertiary"
+          title={extraCategories.map((c) => c.name).join(', ')}
+        >
+          +{extraCategories.length}
+        </span>
+      )}
+
+      {visibleChannels.map((ch) => (
+        <span
+          key={`ch-${ch.id}`}
+          className="inline-flex items-center px-1.5 py-0.5 rounded border border-ev-border-subtle bg-white/[0.03] text-[10px] font-mono text-ev-text-secondary"
+          title={`Channel: #${ch.name}`}
+        >
+          #{ch.name}
+        </span>
+      ))}
+      {extraChannels.length > 0 && (
+        <span
+          className="inline-flex items-center px-1.5 py-0.5 rounded border border-ev-border-subtle bg-white/[0.03] text-[10px] font-medium text-ev-text-tertiary"
+          title={extraChannels.map((c) => `#${c.name}`).join(', ')}
+        >
+          +{extraChannels.length}
+        </span>
+      )}
+    </div>
+  )
+}
 
 type SortField = 'keyword' | 'internal_name' | 'created_at'
 type SortDir = 'asc' | 'desc'
@@ -58,6 +129,25 @@ export function KeywordTable({ keywords, disabledKeywords, globalMinStock }: Key
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [editingKeyword, setEditingKeyword] = useState<Keyword | null>(null)
   const [deletingKeyword, setDeletingKeyword] = useState<Keyword | null>(null)
+
+  const { data: discordData } = useDiscordChannels()
+
+  const channelNameMap = useMemo(() => {
+    const m = new Map<string, string>()
+    if (!discordData) return m
+    for (const cat of discordData.categories) {
+      for (const ch of cat.channels) m.set(ch.id, ch.name)
+    }
+    for (const ch of discordData.uncategorized) m.set(ch.id, ch.name)
+    return m
+  }, [discordData])
+
+  const categoryNameMap = useMemo(() => {
+    const m = new Map<string, string>()
+    if (!discordData) return m
+    for (const cat of discordData.categories) m.set(cat.id, cat.name)
+    return m
+  }, [discordData])
 
   const { execute: executeDelete, isPending } = useAction(deleteKeywords, {
     successMessage: 'Keyword deleted',
@@ -296,18 +386,28 @@ export function KeywordTable({ keywords, disabledKeywords, globalMinStock }: Key
                       </label>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-[13px] font-medium text-ev-text-accent">
-                          {kw.keyword}
-                        </span>
-                        {!kw.channel_ids?.length && !kw.category_ids?.length && (
-                          <span
-                            title="Global — matches in all categories and channels"
-                            className="inline-flex items-center"
-                          >
-                            <Globe className="size-3 text-ev-text-tertiary" />
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-[13px] font-medium text-ev-text-accent">
+                            {kw.keyword}
                           </span>
-                        )}
+                          {!kw.channel_ids?.length && !kw.category_ids?.length && (
+                            <span
+                              title="Global — matches in all categories and channels"
+                              className="inline-flex items-center"
+                            >
+                              <Globe className="size-3 text-ev-text-tertiary" />
+                            </span>
+                          )}
+                        </div>
+                        {(kw.channel_ids?.length || kw.category_ids?.length) ? (
+                          <ScopeBadges
+                            channelIds={kw.channel_ids ?? []}
+                            categoryIds={kw.category_ids ?? []}
+                            channelNameMap={channelNameMap}
+                            categoryNameMap={categoryNameMap}
+                          />
+                        ) : null}
                       </div>
                     </TableCell>
                     <TableCell>
