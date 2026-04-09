@@ -11,12 +11,18 @@ import {
   CheckCircle2,
   XCircle,
   Copy,
+  Eye,
+  EyeOff,
+  Link2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useAction, useActionNoInput } from '@/hooks/use-action'
 import { updateWebhookTemplate, testWebhookTemplate } from '@/lib/actions/admin'
-import type { WebhookTemplateKey } from '@/lib/validations'
+import { updateAppSetting } from '@/lib/actions/admin'
+import type { WebhookTemplateKey, WebhookUrlSettingKey } from '@/lib/validations'
 import type { TemplateVariable } from '@/lib/webhook-templates'
 
 interface WebhookPayloadEditorProps {
@@ -26,6 +32,17 @@ interface WebhookPayloadEditorProps {
   defaultTemplate: string
   currentValue: string | null
   variables: TemplateVariable[]
+  /** app_settings key where the Discord webhook URL for this template is stored */
+  urlSettingKey: WebhookUrlSettingKey
+  urlLabel: string
+  currentUrl: string | null
+}
+
+function isValidWebhookUrl(url: string): boolean {
+  return (
+    url.startsWith('https://discord.com/api/webhooks/') ||
+    url.startsWith('https://discordapp.com/api/webhooks/')
+  )
 }
 
 export function WebhookPayloadEditor({
@@ -35,9 +52,14 @@ export function WebhookPayloadEditor({
   defaultTemplate,
   currentValue,
   variables,
+  urlSettingKey,
+  urlLabel,
+  currentUrl,
 }: WebhookPayloadEditorProps) {
   const initial = currentValue && currentValue.trim() !== '' ? currentValue : defaultTemplate
   const [value, setValue] = useState(initial)
+  const [urlValue, setUrlValue] = useState(currentUrl ?? '')
+  const [showUrl, setShowUrl] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; error?: string } | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
 
@@ -68,10 +90,17 @@ export function WebhookPayloadEditor({
   }, [value])
 
   const isDirty = value !== initial
+  const isUrlDirty = urlValue.trim() !== (currentUrl ?? '')
+  const urlValid = urlValue.trim() === '' || isValidWebhookUrl(urlValue.trim())
 
   const saveAction = useAction(
     async (v: string) => updateWebhookTemplate(settingKey, v),
     { successMessage: 'Webhook-Template gespeichert' },
+  )
+
+  const saveUrlAction = useAction(
+    async (v: string) => updateAppSetting(urlSettingKey, v),
+    { successMessage: 'Webhook URL gespeichert' },
   )
 
   const testAction = useActionNoInput(
@@ -120,6 +149,57 @@ export function WebhookPayloadEditor({
 
       {/* Editor */}
       <div className="p-5 space-y-4">
+        {/* Webhook URL */}
+        <div className="space-y-2">
+          <Label htmlFor={`url-${urlSettingKey}`} className="text-ev-text-secondary text-xs flex items-center gap-1.5">
+            <Link2 className="size-3.5" />
+            {urlLabel}
+          </Label>
+          <div className="flex gap-2">
+            <div className="flex items-center gap-2 flex-1 rounded-lg border bg-ev-tertiary border-ev-border-default focus-within:border-ev-border-strong transition-colors">
+              <Input
+                id={`url-${urlSettingKey}`}
+                type={showUrl ? 'text' : 'password'}
+                placeholder="https://discord.com/api/webhooks/..."
+                value={urlValue}
+                onChange={(e) => setUrlValue(e.target.value)}
+                className="border-0 bg-transparent text-ev-text-primary font-mono text-xs focus-visible:ring-0 focus-visible:border-0"
+              />
+              <button
+                type="button"
+                onClick={() => setShowUrl(!showUrl)}
+                className="flex-shrink-0 p-2 rounded-md transition-colors hover:bg-white/5 text-ev-text-tertiary"
+              >
+                {showUrl ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => saveUrlAction.execute(urlValue.trim())}
+              disabled={saveUrlAction.isPending || !isUrlDirty || !urlValid}
+            >
+              {saveUrlAction.isPending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Save className="size-3.5" />
+              )}
+              Save URL
+            </Button>
+          </div>
+          {!urlValid && (
+            <p className="text-[11px] text-ev-error">
+              Muss eine gueltige Discord Webhook URL sein
+            </p>
+          )}
+          {!currentUrl && urlValid && urlValue.trim() === '' && (
+            <p className="text-[11px] text-ev-warning">
+              Keine URL gesetzt — Send Test wird fehlschlagen
+            </p>
+          )}
+        </div>
+
+        <div className="h-px bg-ev-border-subtle" />
+
         <Textarea
           value={value}
           onChange={(e) => setValue(e.target.value)}

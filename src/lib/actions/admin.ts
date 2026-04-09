@@ -80,7 +80,10 @@ export async function updateAppSetting(key: string, value: string): Promise<Acti
     if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
 
     // Key-specific validation for webhook URLs. Allow empty string to clear.
-    if (parsed.data.key === 'autostart_log_webhook_url' && parsed.data.value.trim() !== '') {
+    const isWebhookUrlKey =
+      parsed.data.key === 'autostart_log_webhook_url' ||
+      parsed.data.key === 'webhook_user_test_url'
+    if (isWebhookUrlKey && parsed.data.value.trim() !== '') {
       const url = parsed.data.value.trim()
       const isDiscordWebhook =
         url.startsWith('https://discord.com/api/webhooks/') ||
@@ -148,7 +151,7 @@ export async function testWebhookTemplate(
   key: WebhookTemplateKey,
 ): Promise<ActionResult> {
   try {
-    const admin = await requireAdmin()
+    await requireAdmin()
     const supabase = await createServerClient()
 
     // Load template (from DB) with fallback to default
@@ -166,35 +169,23 @@ export async function testWebhookTemplate(
       ? templateRow.value
       : defaultTemplate
 
-    // Resolve target URL
-    let targetUrl: string
-    if (key === 'webhook_user_payload_template') {
-      const { data: wh } = await supabase
-        .from('webhook_settings')
-        .select('webhook_url')
-        .eq('user_id', admin.id)
-        .maybeSingle()
-      if (!wh?.webhook_url) {
-        return {
-          success: false,
-          error: 'Du hast selbst keinen User-Webhook konfiguriert. Setze einen unter Notifications → Discord Webhook.',
-        }
+    // Resolve target URL — now read from app_settings per template
+    const urlKey =
+      key === 'webhook_user_payload_template'
+        ? 'webhook_user_test_url'
+        : 'autostart_log_webhook_url'
+    const { data: urlRow } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', urlKey)
+      .maybeSingle()
+    if (!urlRow?.value) {
+      return {
+        success: false,
+        error: `Keine Webhook URL gesetzt (${urlKey}). Setze die URL oben im Editor.`,
       }
-      targetUrl = wh.webhook_url
-    } else {
-      const { data: settingRow } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'autostart_log_webhook_url')
-        .maybeSingle()
-      if (!settingRow?.value) {
-        return {
-          success: false,
-          error: 'Kein autostart_log_webhook_url in den App Settings gesetzt.',
-        }
-      }
-      targetUrl = settingRow.value
     }
+    const targetUrl = urlRow.value
 
     // Render template with sample vars
     const vars =

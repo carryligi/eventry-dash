@@ -121,6 +121,20 @@ export const WEBHOOK_TEMPLATE_KEYS = [
 ] as const
 export type WebhookTemplateKey = (typeof WEBHOOK_TEMPLATE_KEYS)[number]
 
+/**
+ * app_settings keys that store the Discord webhook URL tied to each template.
+ * - webhook_user_test_url   → URL used by the admin "Send Test" button for the
+ *                             user-payload template. Separate from per-user
+ *                             webhook_settings.webhook_url.
+ * - autostart_log_webhook_url → already existed; target for the aggregated
+ *                               admin log webhook sent by the bot.
+ */
+export const WEBHOOK_URL_SETTING_KEYS = [
+  'webhook_user_test_url',
+  'autostart_log_webhook_url',
+] as const
+export type WebhookUrlSettingKey = (typeof WEBHOOK_URL_SETTING_KEYS)[number]
+
 export const webhookTemplateSchema = z.object({
   key: z.enum(WEBHOOK_TEMPLATE_KEYS),
   value: z.string().refine(
