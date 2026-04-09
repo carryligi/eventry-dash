@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -21,7 +22,15 @@ function SidebarSkeleton() {
   )
 }
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  // Onboarding gate: first-time users are redirected to the top-level
+  // /onboarding route (outside /dashboard) so they see a fresh full-page
+  // import experience without the sidebar chrome.
+  const profile = await getCurrentUser()
+  if (!profile.is_onboarded) {
+    redirect('/onboarding')
+  }
+
   return (
     <div className="flex h-screen bg-ev-primary">
       <Suspense fallback={<SidebarSkeleton />}>

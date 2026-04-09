@@ -261,6 +261,7 @@ export type Database = {
           email: string | null
           id: string
           is_admin: boolean
+          is_onboarded: boolean
           membership_status: string | null
           updated_at: string
           username: string | null
@@ -273,6 +274,7 @@ export type Database = {
           email?: string | null
           id: string
           is_admin?: boolean
+          is_onboarded?: boolean
           membership_status?: string | null
           updated_at?: string
           username?: string | null
@@ -285,6 +287,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_admin?: boolean
+          is_onboarded?: boolean
           membership_status?: string | null
           updated_at?: string
           username?: string | null

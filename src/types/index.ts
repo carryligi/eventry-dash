@@ -8,11 +8,13 @@ export type ActionResult<T = void> =
 export interface Profile {
   id: string
   whop_user_id: string | null
+  discord_user_id: string | null
   username: string | null
   email: string | null
   avatar_url: string | null
   membership_status: string | null
   is_admin: boolean
+  is_onboarded: boolean
   created_at: string
   updated_at: string
 }

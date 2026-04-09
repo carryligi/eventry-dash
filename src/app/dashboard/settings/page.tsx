@@ -2,6 +2,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { createServerClient } from '@/lib/supabase/server'
 import { TopBar } from '@/components/dashboard/top-bar'
 import { SettingsForm } from '@/components/dashboard/settings-form'
+import { EventryImportForm } from '@/components/dashboard/eventry-import-form'
+import { getExistingDataCounts } from '@/lib/import/existing-data'
 import {
   Card,
   CardContent,
@@ -10,7 +12,7 @@ import {
 } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import Image from 'next/image'
-import { User } from 'lucide-react'
+import { Download, User } from 'lucide-react'
 
 export default async function SettingsPage() {
   const profile = await getCurrentUser()
@@ -27,6 +29,8 @@ export default async function SettingsPage() {
     .select('discord_user_id')
     .eq('id', profile.id)
     .maybeSingle()
+
+  const existingDataCounts = await getExistingDataCounts(profile.id)
 
   const avatarUrl = profile.avatar_url ?? null
 
@@ -90,6 +94,21 @@ export default async function SettingsPage() {
           pingerActive={pingerSettings?.is_active ?? false}
           discordUserId={profileRow?.discord_user_id ?? null}
         />
+
+        {/* Eventry Import Section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Download className="size-4 text-ev-text-accent" />
+            <h2 className="text-sm font-semibold text-ev-text-primary">
+              Datenmigration
+            </h2>
+          </div>
+          <EventryImportForm
+            variant="settings"
+            existingDataCounts={existingDataCounts}
+            redirectTo="/dashboard/keywords"
+          />
+        </div>
       </div>
     </>
   )
