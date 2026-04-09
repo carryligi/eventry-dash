@@ -1,5 +1,10 @@
 discord.py>=2.3.0
-supabase>=2.0.0
+# supabase + realtime pinned to recent releases: older realtime-py has a
+# known bug where the heartbeat task silently dies and the server closes
+# the WebSocket with code 1006. The bot's watchdog in cache.py is the
+# safety net, but pinning reduces how often it has to fire.
+supabase>=2.20.0,<3.0.0
+realtime>=2.20.0,<3.0.0
 python-dotenv>=1.0.0
 requests>=2.31.0
 pytz>=2024.1
