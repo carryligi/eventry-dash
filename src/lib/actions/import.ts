@@ -74,20 +74,22 @@ export async function importBotData(formData: FormData): Promise<ImportResult> {
   }
 
   // Import keywords — legacy JSON may carry category_id (single) and/or channel_ids.
-  // Global keywords (neither scope) are skipped since the new schema forbids them.
+  // Legacy "globals" (neither scope) are now imported as global keywords
+  // (both channel_ids and category_ids NULL) since the bot treats that as
+  // "match everywhere the bot listens".
   if (keywordsJson) {
     for (const [userId, keywords] of Object.entries(keywordsJson)) {
-      const rows = (keywords as Record<string, unknown>[])
-        .map((kw: Record<string, unknown>) => {
-          const channelIds = Array.isArray(kw.channel_ids) && kw.channel_ids.length > 0
-            ? (kw.channel_ids as string[])
-            : null
-          const legacyCategoryId = typeof kw.category_id === 'string' && kw.category_id
-            ? (kw.category_id as string)
-            : null
+      const rows = (keywords as Record<string, unknown>[]).map(
+        (kw: Record<string, unknown>) => {
+          const channelIds =
+            Array.isArray(kw.channel_ids) && kw.channel_ids.length > 0
+              ? (kw.channel_ids as string[])
+              : null
+          const legacyCategoryId =
+            typeof kw.category_id === 'string' && kw.category_id
+              ? (kw.category_id as string)
+              : null
           const categoryIds = legacyCategoryId ? [legacyCategoryId] : null
-
-          if (!channelIds && !categoryIds) return null // skip legacy globals
 
           return {
             id: kw.id as string,
@@ -98,8 +100,8 @@ export async function importBotData(formData: FormData): Promise<ImportResult> {
             category_ids: categoryIds,
             max_price: null,
           }
-        })
-        .filter((row): row is NonNullable<typeof row> => row !== null)
+        },
+      )
 
       if (rows.length > 0) {
         await supabase.from('keywords').upsert(rows, { onConflict: 'id' })

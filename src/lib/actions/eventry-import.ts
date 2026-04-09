@@ -9,7 +9,6 @@ import {
   EventryParseError,
   type CommitEventryImportInput,
   type ImportSummary,
-  type ParsedEventryKeyword,
 } from '@/lib/import/eventry-types'
 import type { ActionResult } from '@/types'
 
@@ -38,42 +37,17 @@ export async function commitEventryImport(
       }
       return {
         success: false,
-        error: `Ungültige JSON-Datei: ${err instanceof Error ? err.message : 'unbekannter Fehler'}`,
+        error: `Invalid JSON file: ${err instanceof Error ? err.message : 'unknown error'}`,
       }
     }
 
-    // 2. Resolve scopeless keywords with the user's overrides
-    const finalKeywords: ParsedEventryKeyword[] = []
-    let skippedCount = 0
-
-    for (const kw of parsed.keywords) {
-      if (!kw.needsScope) {
-        finalKeywords.push(kw)
-        continue
-      }
-
-      const override = input.scopeOverrides[kw.legacyId]
-      if (!override || override.skip) {
-        skippedCount++
-        continue
-      }
-
-      const channelIds = override.channelIds?.length ? override.channelIds : null
-      const categoryIds = override.categoryIds?.length ? override.categoryIds : null
-      if (!channelIds && !categoryIds) {
-        return {
-          success: false,
-          error: `Keyword "${kw.keyword}" braucht einen Channel oder eine Category — bitte im Preview zuweisen oder überspringen.`,
-        }
-      }
-
-      finalKeywords.push({
-        ...kw,
-        channelIds,
-        categoryIds,
-        needsScope: false,
-      })
-    }
+    // 2. Keywords go in as-is. Scopeless ones become "global" keywords
+    //    (both channel_ids and category_ids NULL) — the bot interprets
+    //    that as "match everywhere I listen".
+    const finalKeywords = parsed.keywords
+    const globalKeywordCount = finalKeywords.filter(
+      (kw) => !kw.channelIds?.length && !kw.categoryIds?.length,
+    ).length
 
     const supabase = await createServerClient()
 
@@ -88,7 +62,7 @@ export async function commitEventryImport(
       if (error) {
         return {
           success: false,
-          error: `Alte Daten konnten nicht gelöscht werden: ${error.message}`,
+          error: `Failed to delete old data: ${error.message}`,
         }
       }
     }
@@ -105,7 +79,7 @@ export async function commitEventryImport(
       if (error) {
         return {
           success: false,
-          error: `Profil konnte nicht aktualisiert werden: ${error.message}`,
+          error: `Failed to update profile: ${error.message}`,
         }
       }
     }
@@ -123,7 +97,7 @@ export async function commitEventryImport(
       if (error) {
         return {
           success: false,
-          error: `Pinger-Settings konnten nicht geschrieben werden: ${error.message}`,
+          error: `Failed to write Pinger settings: ${error.message}`,
         }
       }
     }
@@ -143,7 +117,7 @@ export async function commitEventryImport(
       if (error) {
         return {
           success: false,
-          error: `Pushover-Settings konnten nicht geschrieben werden: ${error.message}`,
+          error: `Failed to write Pushover settings: ${error.message}`,
         }
       }
       pushoverUpdated = true
@@ -155,7 +129,7 @@ export async function commitEventryImport(
       if (error) {
         return {
           success: false,
-          error: `Alte Pushover-Settings konnten nicht entfernt werden: ${error.message}`,
+          error: `Failed to remove old Pushover settings: ${error.message}`,
         }
       }
       pushoverRemoved = true
@@ -179,7 +153,7 @@ export async function commitEventryImport(
       if (error) {
         return {
           success: false,
-          error: `Silently-Settings konnten nicht geschrieben werden: ${error.message}`,
+          error: `Failed to write Silently settings: ${error.message}`,
         }
       }
       silentlyUpdated = true
@@ -191,7 +165,7 @@ export async function commitEventryImport(
       if (error) {
         return {
           success: false,
-          error: `Alte Silently-Settings konnten nicht entfernt werden: ${error.message}`,
+          error: `Failed to remove old Silently settings: ${error.message}`,
         }
       }
       silentlyRemoved = true
@@ -212,7 +186,7 @@ export async function commitEventryImport(
       if (error) {
         return {
           success: false,
-          error: `Webhook-Settings konnten nicht geschrieben werden: ${error.message}`,
+          error: `Failed to write webhook settings: ${error.message}`,
         }
       }
       webhookUpdated = true
@@ -224,7 +198,7 @@ export async function commitEventryImport(
       if (error) {
         return {
           success: false,
-          error: `Alte Webhook-Settings konnten nicht entfernt werden: ${error.message}`,
+          error: `Failed to remove old webhook settings: ${error.message}`,
         }
       }
       webhookRemoved = true
@@ -244,7 +218,7 @@ export async function commitEventryImport(
       if (error) {
         return {
           success: false,
-          error: `Keywords konnten nicht importiert werden: ${error.message}`,
+          error: `Failed to import keywords: ${error.message}`,
         }
       }
     }
@@ -261,7 +235,7 @@ export async function commitEventryImport(
       if (error) {
         return {
           success: false,
-          error: `Autostart-disabled Keywords konnten nicht importiert werden: ${error.message}`,
+          error: `Failed to import autostart-disabled keywords: ${error.message}`,
         }
       }
     }
@@ -276,7 +250,7 @@ export async function commitEventryImport(
     const summary: ImportSummary = {
       discordUserId: parsed.discordUserId,
       keywordsImported: finalKeywords.length,
-      keywordsSkipped: skippedCount,
+      keywordsGlobal: globalKeywordCount,
       pingerUpdated: true,
       pushoverUpdated,
       pushoverRemoved,
@@ -285,23 +259,21 @@ export async function commitEventryImport(
       webhookUpdated,
       webhookRemoved,
       autostartDisabledKeywordsImported: parsed.autostartDisabledKeywords.length,
-      warnings: parsed.issues
-        .filter((i) => i.kind !== 'scopeless_keyword') // scopeless are resolved in preview
-        .map((i) => i.message),
+      warnings: parsed.issues.map((i) => i.message),
     }
 
     return { success: true, data: summary }
   } catch (err) {
     return {
       success: false,
-      error: handleActionError(err, 'Import fehlgeschlagen'),
+      error: handleActionError(err, 'Import failed'),
     }
   }
 }
 
 /**
  * Mark the current user as onboarded without importing anything.
- * Called by the "Ohne Import starten" button on the onboarding page.
+ * Called by the "Start without import" button on the onboarding page.
  */
 export async function markOnboarded(): Promise<ActionResult> {
   try {
@@ -318,7 +290,7 @@ export async function markOnboarded(): Promise<ActionResult> {
   } catch (err) {
     return {
       success: false,
-      error: handleActionError(err, 'Onboarding konnte nicht abgeschlossen werden'),
+      error: handleActionError(err, 'Failed to complete onboarding'),
     }
   }
 }

@@ -30,6 +30,7 @@ import {
   Trash2,
   Pencil,
   Loader2,
+  Globe,
 } from 'lucide-react'
 import { deleteKeywords } from '@/lib/actions/keywords'
 import { toggleKeywordAutostart } from '@/lib/actions/silently'
@@ -287,9 +288,19 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                       </label>
                     </TableCell>
                     <TableCell>
-                      <span className="font-mono text-[13px] font-medium text-ev-text-accent">
-                        {kw.keyword}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-[13px] font-medium text-ev-text-accent">
+                          {kw.keyword}
+                        </span>
+                        {!kw.channel_ids?.length && !kw.category_ids?.length && (
+                          <span
+                            title="Global — matches in all categories and channels"
+                            className="inline-flex items-center"
+                          >
+                            <Globe className="size-3 text-ev-text-tertiary" />
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <span
@@ -387,14 +398,14 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Keyword löschen?</AlertDialogTitle>
+            <AlertDialogTitle>Delete keyword?</AlertDialogTitle>
             <AlertDialogDescription>
-              „{deletingKeyword?.keyword}“ wird dauerhaft gelöscht. Diese
-              Aktion kann nicht rückgängig gemacht werden.
+              &ldquo;{deletingKeyword?.keyword}&rdquo; will be permanently
+              deleted. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isPending}>Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={isPending}
@@ -405,12 +416,12 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
               {isPending ? (
                 <>
                   <Loader2 className="size-3.5 mr-1 animate-spin" />
-                  Lösche…
+                  Deleting…
                 </>
               ) : (
                 <>
                   <Trash2 className="size-3.5 mr-1" />
-                  Löschen
+                  Delete
                 </>
               )}
             </AlertDialogAction>

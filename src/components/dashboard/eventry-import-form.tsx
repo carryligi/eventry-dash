@@ -50,7 +50,7 @@ export function EventryImportForm({
     setParseError(null)
     if (file.size > MAX_FILE_SIZE) {
       setParseError(
-        `Datei zu groß (${(file.size / 1024).toFixed(0)} KB, max 1024 KB)`,
+        `File too large (${(file.size / 1024).toFixed(0)} KB, max 1024 KB)`,
       )
       resetFileInput()
       return
@@ -60,7 +60,7 @@ export function EventryImportForm({
     try {
       text = await file.text()
     } catch {
-      setParseError('Datei konnte nicht gelesen werden.')
+      setParseError('Failed to read file.')
       resetFileInput()
       return
     }
@@ -69,7 +69,7 @@ export function EventryImportForm({
     try {
       rawData = JSON.parse(text)
     } catch {
-      setParseError('Datei ist kein valides JSON.')
+      setParseError('File is not valid JSON.')
       resetFileInput()
       return
     }
@@ -82,7 +82,7 @@ export function EventryImportForm({
         setParseError(err.message)
       } else {
         setParseError(
-          err instanceof Error ? err.message : 'Unbekannter Parse-Fehler',
+          err instanceof Error ? err.message : 'Unknown parse error',
         )
       }
       resetFileInput()
@@ -92,18 +92,18 @@ export function EventryImportForm({
   const handleSuccess = (summary: ImportSummary) => {
     const parts: string[] = []
     if (summary.keywordsImported > 0) {
-      parts.push(`${summary.keywordsImported} Keywords`)
+      parts.push(`${summary.keywordsImported} keywords`)
     }
-    if (summary.keywordsSkipped > 0) {
-      parts.push(`${summary.keywordsSkipped} übersprungen`)
+    if (summary.keywordsGlobal > 0) {
+      parts.push(`${summary.keywordsGlobal} global`)
     }
     if (summary.autostartDisabledKeywordsImported > 0) {
       parts.push(
-        `${summary.autostartDisabledKeywordsImported} Autostart-Blacklist`,
+        `${summary.autostartDisabledKeywordsImported} autostart blacklist`,
       )
     }
     const detail = parts.length > 0 ? ` (${parts.join(', ')})` : ''
-    toast.success(`Import abgeschlossen${detail}`)
+    toast.success(`Import complete${detail}`)
 
     for (const warning of summary.warnings) {
       toast.warning(warning)
@@ -136,13 +136,13 @@ export function EventryImportForm({
 
   const heading =
     variant === 'onboarding'
-      ? 'Settings aus altem Eventry-Tool importieren'
-      : 'Import aus altem Eventry-Tool'
+      ? 'Import settings from the legacy Eventry tool'
+      : 'Import from the legacy Eventry tool'
 
   const description =
     variant === 'onboarding'
-      ? 'Lade deine JSON-Export-Datei hoch, um Keywords, Pinger, Silently, Pushover und Webhook-Settings in Sekunden zu übernehmen.'
-      : 'Lade deine JSON-Export-Datei hoch, um Keywords und Settings erneut zu übernehmen. Achtung: Deine aktuellen Daten werden komplett ersetzt.'
+      ? 'Upload your JSON export file to bring over keywords, Pinger, Silently, Pushover, and webhook settings in seconds.'
+      : 'Upload your JSON export file to re-import keywords and settings. Warning: your current data will be completely replaced.'
 
   return (
     <div className="space-y-4">

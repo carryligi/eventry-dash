@@ -282,15 +282,18 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                     continue
 
                 # Channel/category restriction check — OR over both scopes.
-                # A keyword must have at least one scope after the multi_category
-                # migration; defense-in-depth: both empty -> no match.
+                # A keyword with BOTH scopes empty is a "global" keyword and
+                # matches everywhere the bot listens (same behaviour as the
+                # old Python Eventry tool).
                 channel_ids = kw.channel_ids or []
                 category_ids = kw.category_ids or []
 
-                match_ok = False
-                if channel_ids and cid_str in [str(c) for c in channel_ids]:
+                is_global = not channel_ids and not category_ids
+                match_ok = is_global
+
+                if not match_ok and channel_ids and cid_str in [str(c) for c in channel_ids]:
                     match_ok = True
-                elif category_ids:
+                elif not match_ok and category_ids:
                     msg_cat = message.channel.category_id
                     if msg_cat is not None:
                         match_ok = str(msg_cat) in [str(c) for c in category_ids]

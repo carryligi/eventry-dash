@@ -611,7 +611,9 @@ export default async function AdminUserDetailPage({
                         </Badge>
                       ) : null}
                       {!kw.channel_ids?.length && !kw.category_ids?.length && (
-                        <span className="text-xs text-ev-text-tertiary">—</span>
+                        <Badge variant="secondary" className="text-xs">
+                          Global
+                        </Badge>
                       )}
                     </div>
                   </TableCell>

@@ -42,10 +42,14 @@ console.log(parsed.webhook)
 
 console.log('\n── KEYWORDS ──')
 console.log(`Total: ${parsed.keywords.length}`)
-const scoped = parsed.keywords.filter((k) => !k.needsScope)
-const scopeless = parsed.keywords.filter((k) => k.needsScope)
+const scoped = parsed.keywords.filter(
+  (k) => !!k.channelIds?.length || !!k.categoryIds?.length,
+)
+const global = parsed.keywords.filter(
+  (k) => !k.channelIds?.length && !k.categoryIds?.length,
+)
 console.log(`With scope: ${scoped.length}`)
-console.log(`Scopeless: ${scopeless.length}`)
+console.log(`Global (both null): ${global.length}`)
 console.log('\nScoped keywords:')
 for (const kw of scoped) {
   console.log(`  • "${kw.keyword}"${kw.internalName ? ` (${kw.internalName})` : ''}`)
@@ -53,8 +57,8 @@ for (const kw of scoped) {
   console.log(`      categoryIds: ${JSON.stringify(kw.categoryIds)}`)
   if (kw.maxPrice !== null) console.log(`      maxPrice: ${kw.maxPrice}`)
 }
-console.log('\nScopeless keywords:')
-for (const kw of scopeless) {
+console.log('\nGlobal keywords:')
+for (const kw of global) {
   console.log(`  • "${kw.keyword}"${kw.internalName ? ` (${kw.internalName})` : ''}`)
 }
 

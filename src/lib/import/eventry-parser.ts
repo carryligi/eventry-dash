@@ -54,7 +54,7 @@ export function parseEventryExport(raw: unknown): ParsedEventryImport {
     const firstIssue = parseResult.error.issues[0]
     const path = firstIssue.path.join('.') || '(root)'
     throw new EventryParseError(
-      `Ungültiges Eventry-JSON (${path}): ${firstIssue.message}`,
+      `Invalid Eventry JSON (${path}): ${firstIssue.message}`,
       JSON.stringify(parseResult.error.issues, null, 2),
     )
   }
@@ -90,7 +90,7 @@ export function parseEventryExport(raw: unknown): ParsedEventryImport {
       priority = clamp(Math.round(rawPriority), 0, 2) as 0 | 1 | 2
       issues.push({
         kind: 'invalid_priority',
-        message: `Pushover-Priorität "${rawPriority}" ist ungültig, wurde auf ${priority} geclampt.`,
+        message: `Pushover priority "${rawPriority}" is invalid, clamped to ${priority}.`,
       })
     }
     pushover = { userKey: data.pushover.key, priority }
@@ -107,13 +107,13 @@ export function parseEventryExport(raw: unknown): ParsedEventryImport {
       if (data.autostart_schedule.start && !scheduleStart) {
         issues.push({
           kind: 'invalid_schedule',
-          message: `Schedule-Start "${data.autostart_schedule.start}" ist kein gültiges HH:MM-Format.`,
+          message: `Schedule start "${data.autostart_schedule.start}" is not a valid HH:MM format.`,
         })
       }
       if (data.autostart_schedule.end && !scheduleEnd) {
         issues.push({
           kind: 'invalid_schedule',
-          message: `Schedule-Ende "${data.autostart_schedule.end}" ist kein gültiges HH:MM-Format.`,
+          message: `Schedule end "${data.autostart_schedule.end}" is not a valid HH:MM format.`,
         })
       }
     }
@@ -135,7 +135,7 @@ export function parseEventryExport(raw: unknown): ParsedEventryImport {
     } else {
       issues.push({
         kind: 'invalid_webhook',
-        message: `Webhook-URL "${data.autostart_webhook.slice(0, 50)}…" ist keine gültige Discord-Webhook-URL — wird nicht importiert.`,
+        message: `Webhook URL "${data.autostart_webhook.slice(0, 50)}…" is not a valid Discord webhook URL — will not be imported.`,
       })
     }
   }
@@ -155,7 +155,7 @@ export function parseEventryExport(raw: unknown): ParsedEventryImport {
     if (!keywordText) {
       issues.push({
         kind: 'missing_keyword_text',
-        message: `Keyword an Position ${idx + 1} hat keinen Text und wird übersprungen.`,
+        message: `Keyword at position ${idx + 1} has no text and will be skipped.`,
       })
       continue
     }
@@ -180,8 +180,9 @@ export function parseEventryExport(raw: unknown): ParsedEventryImport {
       maxPrice = rawPrice
     }
 
-    const needsScope = !channelIds?.length && !categoryIds?.length
-
+    // A keyword with neither channelIds nor categoryIds is a global keyword —
+    // it matches in every channel the bot listens in. No manual scope
+    // assignment needed anymore.
     const normalizedKw: ParsedEventryKeyword = {
       legacyId,
       keyword: keywordText,
@@ -192,7 +193,6 @@ export function parseEventryExport(raw: unknown): ParsedEventryImport {
       channelIds: channelIds && channelIds.length > 0 ? channelIds : null,
       categoryIds,
       maxPrice,
-      needsScope,
     }
 
     const key = dedupeKey(normalizedKw)
@@ -202,20 +202,12 @@ export function parseEventryExport(raw: unknown): ParsedEventryImport {
     }
     seen.add(key)
     keywords.push(normalizedKw)
-
-    if (needsScope) {
-      issues.push({
-        kind: 'scopeless_keyword',
-        message: `Keyword "${normalizedKw.keyword}" hat keinen Channel und keine Category — Scope erforderlich.`,
-        legacyId: normalizedKw.legacyId,
-      })
-    }
   }
 
   if (duplicatesDropped > 0) {
     issues.push({
       kind: 'duplicate_keyword',
-      message: `${duplicatesDropped} doppelte Keyword-Einträge wurden entfernt.`,
+      message: `${duplicatesDropped} duplicate keyword entries were removed.`,
     })
   }
 
@@ -225,7 +217,7 @@ export function parseEventryExport(raw: unknown): ParsedEventryImport {
   if (unmappedPrices.length > 0) {
     issues.push({
       kind: 'unmapped_max_price',
-      message: `${unmappedPrices.length} Max-Price-Einträge konnten keinem Keyword zugeordnet werden.`,
+      message: `${unmappedPrices.length} max-price entries could not be matched to any keyword.`,
     })
   }
 

@@ -9,13 +9,11 @@ export interface ParsedEventryKeyword {
   legacyId: string
   keyword: string
   internalName: string | null
+  /** Both channelIds and categoryIds being null means the keyword is
+   *  **global** — it matches in every channel the bot listens in. */
   channelIds: string[] | null
   categoryIds: string[] | null
   maxPrice: number | null
-  /** True when both channelIds and categoryIds are null. The new schema
-   *  requires at least one scope, so these keywords need to be resolved
-   *  by the user in the preview step. */
-  needsScope: boolean
 }
 
 export interface ParsedEventryImport {
@@ -49,7 +47,6 @@ export interface ParsedEventryImport {
 }
 
 export type ImportIssueKind =
-  | 'scopeless_keyword'
   | 'invalid_webhook'
   | 'invalid_priority'
   | 'invalid_schedule'
@@ -74,22 +71,14 @@ export class EventryParseError extends Error {
 
 // ── Server action input/output ──
 
-export interface ScopeOverride {
-  channelIds?: string[]
-  categoryIds?: string[]
-  skip?: boolean
-}
-
 export interface CommitEventryImportInput {
   rawJson: string
-  /** Keyed by the parser's `legacyId`. Each override resolves a scopeless keyword. */
-  scopeOverrides: Record<string, ScopeOverride>
 }
 
 export interface ImportSummary {
   discordUserId: string
   keywordsImported: number
-  keywordsSkipped: number
+  keywordsGlobal: number
   pingerUpdated: boolean
   pushoverUpdated: boolean
   pushoverRemoved: boolean

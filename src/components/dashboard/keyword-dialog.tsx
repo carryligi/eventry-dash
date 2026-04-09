@@ -14,7 +14,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Plus, Loader2, AlertTriangle, Eraser } from 'lucide-react'
+import { Plus, Loader2, AlertTriangle, Eraser, Globe } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import { addKeywords, updateKeyword } from '@/lib/actions/keywords'
 import { useAction } from '@/hooks/use-action'
 import { DiscordChannelPicker } from './discord-channel-picker'
@@ -58,6 +59,12 @@ export function KeywordDialog({
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
     keyword?.category_ids ?? [],
   )
+  // A keyword with neither channels nor categories is "global" — it matches
+  // everywhere the bot listens. When editing, detect that state and prefill
+  // the toggle so the user sees the current configuration at a glance.
+  const [isGlobal, setIsGlobal] = useState<boolean>(
+    () => !!keyword && !keyword.channel_ids?.length && !keyword.category_ids?.length,
+  )
 
   const { data: discordData } = useDiscordChannels()
 
@@ -69,8 +76,31 @@ export function KeywordDialog({
     setMaxPrice(keyword?.max_price != null ? String(keyword.max_price) : '')
     setSelectedChannelIds(keyword?.channel_ids ?? [])
     setSelectedCategoryIds(keyword?.category_ids ?? [])
+    setIsGlobal(
+      !!keyword && !keyword.channel_ids?.length && !keyword.category_ids?.length,
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, keyword?.id])
+
+  // Enabling Global clears any existing scope selection.
+  const handleToggleGlobal = (next: boolean) => {
+    setIsGlobal(next)
+    if (next) {
+      setSelectedChannelIds([])
+      setSelectedCategoryIds([])
+    }
+  }
+
+  // Selecting anything in the scope pickers turns Global off automatically
+  // so the user can't accidentally leave stale selections behind.
+  const handleChannelChange = (ids: string[]) => {
+    setSelectedChannelIds(ids)
+    if (ids.length > 0 && isGlobal) setIsGlobal(false)
+  }
+  const handleCategoryChange = (ids: string[]) => {
+    setSelectedCategoryIds(ids)
+    if (ids.length > 0 && isGlobal) setIsGlobal(false)
+  }
 
   const { execute: executeAdd, isPending: isAdding, error: addError } = useAction(addKeywords, {
     successMessage: 'Keywords added',
@@ -113,18 +143,27 @@ export function KeywordDialog({
     setSelectedChannelIds((prev) => prev.filter((id) => !redundantChannelIds.includes(id)))
   }
 
-  const hasScope = selectedChannelIds.length > 0 || selectedCategoryIds.length > 0
+  const hasScope =
+    isGlobal || selectedChannelIds.length > 0 || selectedCategoryIds.length > 0
   const canSubmit = hasScope && keywordText.trim().length > 0 && !isPending
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!canSubmit) return
 
+    // Global mode: send both scope fields as undefined so parseIdList on the
+    // server turns them into NULL in the DB.
     const payload = {
       internal_name: internalName,
       max_price: maxPrice,
-      channel_ids: selectedChannelIds.length > 0 ? selectedChannelIds.join(',') : undefined,
-      category_ids: selectedCategoryIds.length > 0 ? selectedCategoryIds.join(',') : undefined,
+      channel_ids:
+        !isGlobal && selectedChannelIds.length > 0
+          ? selectedChannelIds.join(',')
+          : undefined,
+      category_ids:
+        !isGlobal && selectedCategoryIds.length > 0
+          ? selectedCategoryIds.join(',')
+          : undefined,
     }
 
     if (isEdit && keyword) {
@@ -202,23 +241,53 @@ export function KeywordDialog({
             />
           </div>
 
-          {/* Channels */}
-          <div className="space-y-2">
+          {/* Global toggle — when on, the keyword matches everywhere */}
+          <div className="flex items-start justify-between gap-3 rounded-lg border border-ev-border-subtle bg-ev-tertiary px-3 py-2.5">
+            <div className="flex items-start gap-2 min-w-0">
+              <Globe className="size-4 shrink-0 mt-0.5 text-ev-text-accent" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-ev-text-primary">
+                  Global
+                </p>
+                <p className="text-xs text-ev-text-tertiary">
+                  Matches in all categories and channels. No scope needed.
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={isGlobal}
+              onCheckedChange={handleToggleGlobal}
+              aria-label="Global scope"
+            />
+          </div>
+
+          {/* Channels — wrapper dims and ignores pointer events when Global is on */}
+          <div
+            aria-hidden={isGlobal}
+            className={`space-y-2 transition-opacity ${
+              isGlobal ? 'pointer-events-none opacity-50 select-none' : ''
+            }`}
+          >
             <Label>Channels</Label>
             <DiscordChannelPicker
               mode="channels"
               selectedIds={selectedChannelIds}
-              onSelectionChange={setSelectedChannelIds}
+              onSelectionChange={handleChannelChange}
             />
           </div>
 
-          {/* Categories */}
-          <div className="space-y-2">
+          {/* Categories — same dimming behaviour */}
+          <div
+            aria-hidden={isGlobal}
+            className={`space-y-2 transition-opacity ${
+              isGlobal ? 'pointer-events-none opacity-50 select-none' : ''
+            }`}
+          >
             <Label>Categories</Label>
             <DiscordChannelPicker
               mode="category"
               selectedIds={selectedCategoryIds}
-              onSelectionChange={setSelectedCategoryIds}
+              onSelectionChange={handleCategoryChange}
             />
           </div>
 
@@ -229,12 +298,12 @@ export function KeywordDialog({
                 <AlertTriangle className="size-3.5 flex-shrink-0 mt-0.5 text-yellow-500/90" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-ev-text-primary">
-                    Ueberfluessige Channels
+                    Redundant channels
                   </p>
                   <p className="text-xs text-ev-text-secondary mt-0.5">
                     {redundantChannelNames.map((n) => `#${n}`).join(', ')}{' '}
-                    {redundantChannelNames.length === 1 ? 'ist' : 'sind'} bereits Teil
-                    einer ausgewaehlten Kategorie.
+                    {redundantChannelNames.length === 1 ? 'is' : 'are'} already part of
+                    a selected category.
                   </p>
                 </div>
               </div>
@@ -246,13 +315,13 @@ export function KeywordDialog({
                 className="self-start h-7 text-xs text-yellow-500/90"
               >
                 <Eraser className="size-3 mr-1" />
-                Ueberfluessige Channels entfernen
+                Remove redundant channels
               </Button>
             </div>
           )}
 
           <p className="text-xs text-ev-text-tertiary">
-            Mindestens einen Channel oder eine Kategorie auswaehlen.
+            Enable Global or select at least one channel or category.
           </p>
 
           {/* Max price */}

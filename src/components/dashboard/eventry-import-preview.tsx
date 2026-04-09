@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import {
   AlertTriangle,
   Bell,
@@ -8,33 +8,21 @@ import {
   CheckCircle2,
   Clock,
   FileJson,
+  Globe,
   Key,
   Loader2,
   MessageSquare,
   Package,
   Upload,
   Webhook,
-  XCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { useAction } from '@/hooks/use-action'
 import { commitEventryImport } from '@/lib/actions/eventry-import'
 import type {
   ImportSummary,
   ParsedEventryImport,
-  ScopeOverride,
 } from '@/lib/import/eventry-types'
-
-type ScopeFormState = Record<
-  string,
-  {
-    channelIds: string
-    categoryIds: string
-    skip: boolean
-  }
->
 
 interface EventryImportPreviewProps {
   parsed: ParsedEventryImport
@@ -50,13 +38,6 @@ interface EventryImportPreviewProps {
   onSuccess: (summary: ImportSummary) => void
 }
 
-function parseIdList(raw: string): string[] {
-  return raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
-
 export function EventryImportPreview({
   parsed,
   rawJson,
@@ -65,48 +46,23 @@ export function EventryImportPreview({
   onCancel,
   onSuccess,
 }: EventryImportPreviewProps) {
-  const scopelessKeywords = useMemo(
-    () => parsed.keywords.filter((k) => k.needsScope),
-    [parsed.keywords],
-  )
-  const scopedKeywordsCount = parsed.keywords.length - scopelessKeywords.length
-
-  const [scopeForm, setScopeForm] = useState<ScopeFormState>(() => {
-    const initial: ScopeFormState = {}
-    for (const kw of scopelessKeywords) {
-      initial[kw.legacyId] = { channelIds: '', categoryIds: '', skip: false }
+  const { globalCount, scopedCount } = useMemo(() => {
+    let global = 0
+    let scoped = 0
+    for (const kw of parsed.keywords) {
+      if (!kw.channelIds?.length && !kw.categoryIds?.length) global++
+      else scoped++
     }
-    return initial
-  })
+    return { globalCount: global, scopedCount: scoped }
+  }, [parsed.keywords])
 
   const commitAction = useAction(commitEventryImport, {
-    successMessage: 'Import erfolgreich',
+    successMessage: 'Import successful',
     onSuccess,
   })
 
-  const unresolvedScopeless = scopelessKeywords.filter((kw) => {
-    const entry = scopeForm[kw.legacyId]
-    if (!entry || entry.skip) return false
-    const hasChannel = parseIdList(entry.channelIds).length > 0
-    const hasCategory = parseIdList(entry.categoryIds).length > 0
-    return !hasChannel && !hasCategory
-  })
-
   const handleImport = () => {
-    const scopeOverrides: Record<string, ScopeOverride> = {}
-    for (const kw of scopelessKeywords) {
-      const entry = scopeForm[kw.legacyId]
-      if (!entry) continue
-      if (entry.skip) {
-        scopeOverrides[kw.legacyId] = { skip: true }
-        continue
-      }
-      scopeOverrides[kw.legacyId] = {
-        channelIds: parseIdList(entry.channelIds),
-        categoryIds: parseIdList(entry.categoryIds),
-      }
-    }
-    commitAction.execute({ rawJson, scopeOverrides })
+    commitAction.execute({ rawJson })
   }
 
   const exportedDate = parsed.meta.exportedAt
@@ -216,140 +172,38 @@ export function EventryImportPreview({
           <PreviewRow
             icon={Key}
             label="Keywords"
-            value={`${parsed.keywords.length} insgesamt • ${scopedKeywordsCount} mit Scope${
-              scopelessKeywords.length > 0
-                ? ` • ${scopelessKeywords.length} ohne Scope`
-                : ''
+            value={`${parsed.keywords.length} insgesamt • ${scopedCount} mit Scope${
+              globalCount > 0 ? ` • ${globalCount} global` : ''
             }`}
           />
         </div>
 
-        {parsed.issues.filter((i) => i.kind !== 'scopeless_keyword').length >
-          0 && (
+        {globalCount > 0 && (
+          <div className="flex items-start gap-2 rounded-lg border border-ev-border-subtle bg-ev-tertiary p-3">
+            <Globe className="size-4 text-ev-text-accent shrink-0 mt-0.5" />
+            <p className="text-xs text-ev-text-secondary">
+              {globalCount} Keyword{globalCount === 1 ? '' : 's'} ohne Scope
+              wird als <strong className="text-ev-text-primary">Global</strong>{' '}
+              importiert — matcht in allen vom Bot beobachteten Kategorien und
+              Channels.
+            </p>
+          </div>
+        )}
+
+        {parsed.issues.length > 0 && (
           <div className="rounded-lg border border-ev-border-subtle bg-ev-tertiary p-3 space-y-1">
             <div className="flex items-center gap-2 text-xs font-semibold text-ev-text-secondary">
               <AlertTriangle className="size-3.5 text-amber-400" />
               Hinweise
             </div>
             <ul className="text-xs text-ev-text-tertiary space-y-0.5 list-disc list-inside">
-              {parsed.issues
-                .filter((i) => i.kind !== 'scopeless_keyword')
-                .map((i, idx) => (
-                  <li key={idx}>{i.message}</li>
-                ))}
+              {parsed.issues.map((i, idx) => (
+                <li key={idx}>{i.message}</li>
+              ))}
             </ul>
           </div>
         )}
       </div>
-
-      {/* Scopeless keyword editor */}
-      {scopelessKeywords.length > 0 && (
-        <div className="bg-ev-secondary rounded-xl border border-ev-border-default p-5 space-y-4">
-          <div className="space-y-1">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-ev-text-primary">
-              <AlertTriangle className="size-4 text-amber-400" />
-              Keywords ohne Scope — Aktion erforderlich
-            </h3>
-            <p className="text-xs text-ev-text-secondary">
-              Diese Keywords haben weder einen Channel noch eine Category. Weise
-              jedem entweder Channel-IDs oder Category-IDs zu (Komma-getrennt),
-              oder markiere sie als überspringen.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            {scopelessKeywords.map((kw) => {
-              const entry = scopeForm[kw.legacyId]
-              if (!entry) return null
-              const disabled = entry.skip
-              return (
-                <div
-                  key={kw.legacyId}
-                  className="rounded-lg border border-ev-border-subtle bg-ev-tertiary p-3 space-y-3"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-ev-text-primary truncate">
-                        {kw.keyword}
-                      </p>
-                      {kw.internalName && (
-                        <p className="text-xs text-ev-text-tertiary truncate">
-                          {kw.internalName}
-                        </p>
-                      )}
-                    </div>
-                    <Button
-                      variant={entry.skip ? 'secondary' : 'outline'}
-                      size="sm"
-                      onClick={() =>
-                        setScopeForm((prev) => ({
-                          ...prev,
-                          [kw.legacyId]: { ...prev[kw.legacyId], skip: !entry.skip },
-                        }))
-                      }
-                    >
-                      {entry.skip ? (
-                        <>
-                          <XCircle className="size-3.5" />
-                          Skipping
-                        </>
-                      ) : (
-                        'Skip'
-                      )}
-                    </Button>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-ev-text-secondary">
-                        Channel IDs (Komma-getrennt)
-                      </Label>
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="z.B. 1466199721696559207"
-                        value={entry.channelIds}
-                        disabled={disabled}
-                        onChange={(e) =>
-                          setScopeForm((prev) => ({
-                            ...prev,
-                            [kw.legacyId]: {
-                              ...prev[kw.legacyId],
-                              channelIds: e.target.value,
-                            },
-                          }))
-                        }
-                        className="bg-ev-secondary border-ev-border-default text-ev-text-primary font-mono text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-ev-text-secondary">
-                        Category IDs (Komma-getrennt)
-                      </Label>
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="z.B. 1341277169191489628"
-                        value={entry.categoryIds}
-                        disabled={disabled}
-                        onChange={(e) =>
-                          setScopeForm((prev) => ({
-                            ...prev,
-                            [kw.legacyId]: {
-                              ...prev[kw.legacyId],
-                              categoryIds: e.target.value,
-                            },
-                          }))
-                        }
-                        className="bg-ev-secondary border-ev-border-default text-ev-text-primary font-mono text-xs"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Replace-all warning */}
       {userHasExistingData && (
@@ -378,24 +232,14 @@ export function EventryImportPreview({
         >
           Abbrechen
         </Button>
-        <div className="flex items-center gap-3">
-          {unresolvedScopeless.length > 0 && (
-            <span className="text-xs text-amber-300">
-              {unresolvedScopeless.length} Keywords brauchen noch Scope
-            </span>
+        <Button onClick={handleImport} disabled={commitAction.isPending}>
+          {commitAction.isPending ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Upload className="size-3.5" />
           )}
-          <Button
-            onClick={handleImport}
-            disabled={commitAction.isPending || unresolvedScopeless.length > 0}
-          >
-            {commitAction.isPending ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Upload className="size-3.5" />
-            )}
-            Jetzt importieren
-          </Button>
-        </div>
+          Jetzt importieren
+        </Button>
       </div>
     </div>
   )
