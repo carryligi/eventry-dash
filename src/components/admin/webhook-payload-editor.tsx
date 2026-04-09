@@ -76,16 +76,16 @@ export function WebhookPayloadEditor({
   }, [copied])
 
   const parseError = useMemo(() => {
-    if (!value.trim()) return 'Template darf nicht leer sein'
+    if (!value.trim()) return 'Template cannot be empty'
     try {
       const parsed = JSON.parse(value)
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
-        return 'Muss ein JSON-Objekt sein'
+        return 'Must be a JSON object'
       if (!Array.isArray((parsed as { embeds?: unknown }).embeds))
-        return 'Muss ein "embeds" Array enthalten'
+        return 'Must contain an "embeds" array'
       return null
     } catch (e) {
-      return e instanceof Error ? e.message : 'Ungueltiges JSON'
+      return e instanceof Error ? e.message : 'Invalid JSON'
     }
   }, [value])
 
@@ -95,12 +95,12 @@ export function WebhookPayloadEditor({
 
   const saveAction = useAction(
     async (v: string) => updateWebhookTemplate(settingKey, v),
-    { successMessage: 'Webhook-Template gespeichert' },
+    { successMessage: 'Webhook template saved' },
   )
 
   const saveUrlAction = useAction(
     async (v: string) => updateAppSetting(urlSettingKey, v),
-    { successMessage: 'Webhook URL gespeichert' },
+    { successMessage: 'Webhook URL saved' },
   )
 
   const testAction = useActionNoInput(
@@ -188,12 +188,12 @@ export function WebhookPayloadEditor({
           </div>
           {!urlValid && (
             <p className="text-[11px] text-ev-error">
-              Muss eine gueltige Discord Webhook URL sein
+              Must be a valid Discord webhook URL
             </p>
           )}
           {!currentUrl && urlValid && urlValue.trim() === '' && (
             <p className="text-[11px] text-ev-warning">
-              Keine URL gesetzt — Send Test wird fehlschlagen
+              No URL set — Send Test will fail
             </p>
           )}
         </div>
@@ -214,7 +214,7 @@ export function WebhookPayloadEditor({
           </div>
         ) : (
           <p className="text-[11px] text-ev-text-tertiary">
-            Valides JSON. Platzhalter mit <code className="font-mono">{'{{variable}}'}</code> werden beim Senden ersetzt.
+            Valid JSON. Placeholders like <code className="font-mono">{'{{variable}}'}</code> are substituted when sending.
           </p>
         )}
 
@@ -281,12 +281,12 @@ export function WebhookPayloadEditor({
             {testResult.success ? (
               <>
                 <CheckCircle2 className="size-4 flex-shrink-0 text-ev-success" />
-                <span className="text-ev-success">Test-Webhook erfolgreich gesendet</span>
+                <span className="text-ev-success">Test webhook sent successfully</span>
               </>
             ) : (
               <>
                 <XCircle className="size-4 flex-shrink-0 text-ev-error" />
-                <span className="text-ev-error break-all">{testResult.error || 'Fehler beim Senden'}</span>
+                <span className="text-ev-error break-all">{testResult.error || 'Failed to send'}</span>
               </>
             )}
           </div>
@@ -296,7 +296,7 @@ export function WebhookPayloadEditor({
       {/* Variables reference */}
       <div className="px-5 py-4 border-t border-ev-border-subtle bg-ev-tertiary/30">
         <p className="text-[11px] uppercase tracking-widest font-semibold text-ev-text-tertiary mb-2">
-          Verfuegbare Variablen (click to copy)
+          Available variables (click to copy)
         </p>
         <div className="flex flex-wrap gap-1.5">
           {variables.map((v) => (

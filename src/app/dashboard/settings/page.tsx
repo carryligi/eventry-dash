@@ -100,7 +100,7 @@ export default async function SettingsPage() {
           <div className="flex items-center gap-2">
             <Download className="size-4 text-ev-text-accent" />
             <h2 className="text-sm font-semibold text-ev-text-primary">
-              Datenmigration
+              Data migration
             </h2>
           </div>
           <EventryImportForm

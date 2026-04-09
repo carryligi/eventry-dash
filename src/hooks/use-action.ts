@@ -34,7 +34,7 @@ export function useAction<TInput, TOutput = void>(
             options?.onError?.(result.error)
           }
         } catch {
-          const msg = 'Ein unerwarteter Fehler ist aufgetreten'
+          const msg = 'An unexpected error occurred'
           setError(msg)
           toast.error(msg)
           options?.onError?.(msg)

@@ -28,7 +28,7 @@ export function SettingsForm({ cooldownMinutes, pingerActive, discordUserId }: S
   })
 
   const discordAction = useAction(updateDiscordUserId, {
-    successMessage: 'Discord User ID gespeichert',
+    successMessage: 'Discord User ID saved',
   })
 
   const deactivateAction = useAction(togglePinger, {
@@ -52,9 +52,9 @@ export function SettingsForm({ cooldownMinutes, pingerActive, discordUserId }: S
             Discord User ID
           </h3>
           <p className="text-xs text-ev-text-secondary mt-1">
-            Erforderlich für DMs, Server-Checks und Silently Autostart. Discord →
-            Einstellungen → Erweitert → Entwicklermodus an → Rechtsklick auf dein
-            Profil → &quot;User-ID kopieren&quot;.
+            Required for DMs, server checks, and Silently Autostart. Discord →
+            Settings → Advanced → enable Developer Mode → right-click your
+            profile → &quot;Copy User ID&quot;.
           </p>
         </div>
 
@@ -68,7 +68,7 @@ export function SettingsForm({ cooldownMinutes, pingerActive, discordUserId }: S
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
-              placeholder="z.B. 581447756858785792"
+              placeholder="e.g. 581447756858785792"
               value={discordId}
               onChange={(e) => setDiscordId(e.target.value)}
               className="bg-ev-tertiary border-ev-border-default text-ev-text-primary font-mono"

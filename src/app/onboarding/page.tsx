@@ -6,7 +6,7 @@ import { EventryImportForm } from '@/components/dashboard/eventry-import-form'
 import { SkipOnboardingButton } from '@/components/dashboard/skip-onboarding-button'
 
 export const metadata = {
-  title: 'Willkommen · Eventry Dashboard',
+  title: 'Welcome · Eventry Dashboard',
 }
 
 export default async function OnboardingPage() {
@@ -29,12 +29,11 @@ export default async function OnboardingPage() {
             <Sparkles className="size-5 text-ev-text-accent" />
           </div>
           <h1 className="text-2xl font-semibold text-ev-text-primary">
-            Willkommen bei Eventry Dashboard
+            Welcome to Eventry Dashboard
           </h1>
           <p className="text-sm text-ev-text-secondary max-w-md mx-auto">
-            Du hast bereits mit dem alten Eventry-Tool gearbeitet? Importiere
-            deine Settings in Sekunden. Du kannst diesen Schritt auch
-            überspringen und später jederzeit in den Settings nachholen.
+            Already used the legacy Eventry tool? Import your settings in
+            seconds. You can also skip this step and do it later from Settings.
           </p>
         </div>
 

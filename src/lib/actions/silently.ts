@@ -46,7 +46,7 @@ export async function setSilentlyKey(key: string): Promise<ActionResult> {
     revalidateAutostart()
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Speichern des Silently Keys') }
+    return { success: false, error: handleActionError(err, 'Failed to save Silently key') }
   }
 }
 
@@ -63,7 +63,7 @@ export async function removeSilentlyKey(): Promise<ActionResult> {
     revalidateAutostart()
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Entfernen des Silently Keys') }
+    return { success: false, error: handleActionError(err, 'Failed to remove Silently key') }
   }
 }
 
@@ -80,7 +80,7 @@ export async function toggleAutostart(isActive: boolean): Promise<ActionResult> 
     revalidateAutostart()
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Aendern des Autostart-Status') }
+    return { success: false, error: handleActionError(err, 'Failed to change autostart status') }
   }
 }
 
@@ -101,7 +101,7 @@ export async function updateMinStock(minStock: number): Promise<ActionResult> {
     revalidateAutostart()
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Aendern des Min Stock') }
+    return { success: false, error: handleActionError(err, 'Failed to change min stock') }
   }
 }
 
@@ -128,7 +128,7 @@ export async function updateSchedule(
     revalidateAutostart()
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Aendern des Zeitplans') }
+    return { success: false, error: handleActionError(err, 'Failed to change schedule') }
   }
 }
 
@@ -162,6 +162,6 @@ export async function toggleKeywordAutostart(
     revalidatePath('/dashboard')
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Aendern des Keyword-Autostart') }
+    return { success: false, error: handleActionError(err, 'Failed to change keyword autostart') }
   }
 }

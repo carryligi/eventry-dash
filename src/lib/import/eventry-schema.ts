@@ -32,7 +32,7 @@ export const RawEventryExportSchema = z
     discord_user_id: z
       .string()
       .trim()
-      .regex(/^[0-9]{17,20}$/, 'discord_user_id muss eine 17-20 stellige Snowflake sein'),
+      .regex(/^[0-9]{17,20}$/, 'discord_user_id must be a 17-20 digit Snowflake'),
     pinger_status: z.boolean().optional(),
     keywords: z.array(RawEventryKeywordSchema).optional(),
     cooldown: z

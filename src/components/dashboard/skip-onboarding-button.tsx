@@ -26,7 +26,7 @@ export function SkipOnboardingButton() {
       ) : (
         <SkipForward className="size-3.5" />
       )}
-      Ohne Import starten
+      Start without import
     </Button>
   )
 }

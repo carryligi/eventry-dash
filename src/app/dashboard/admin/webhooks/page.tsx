@@ -36,33 +36,33 @@ export default async function AdminWebhooksPage() {
       <div>
         <h2 className="text-lg font-semibold text-ev-text-primary">Webhook Templates</h2>
         <p className="text-xs text-ev-text-secondary mt-1">
-          JSON-Templates fuer die beiden Discord-Webhooks. Der Python-Bot und der Dashboard Test-Button
-          rendern diese Vorlagen mit Echt- bzw. Sample-Daten, bevor sie an Discord gesendet werden.
-          Aenderungen werden ueber Supabase Realtime sofort im Bot aktiv.
+          JSON templates for the two Discord webhooks. The Python bot and the dashboard Test button
+          render these templates with real or sample data before sending them to Discord. Changes
+          propagate to the bot instantly via Supabase Realtime.
         </p>
       </div>
 
       <WebhookPayloadEditor
         title="User Autostart Webhook"
-        description="Wird an den persoenlichen Webhook jedes Users gesendet, sobald ein Autostart ausgeloest wurde."
+        description="Sent to each user's personal webhook whenever an autostart is triggered."
         settingKey="webhook_user_payload_template"
         defaultTemplate={DEFAULT_USER_WEBHOOK_TEMPLATE}
         currentValue={userValue}
         variables={USER_TEMPLATE_VARIABLES}
         urlSettingKey="webhook_user_test_url"
-        urlLabel="Test-URL fuer User Template (nur fuer den Send-Test-Button)"
+        urlLabel="Test URL for user template (only for the Send Test button)"
         currentUrl={userTestUrl}
       />
 
       <WebhookPayloadEditor
         title="Admin Log Webhook"
-        description="Globaler Audit-Log Kanal. Bekommt EINEN aggregierten Webhook pro Autostart-Event mit allen ausgeloesten Usern."
+        description="Global audit log channel. Receives ONE aggregated webhook per autostart event listing all triggered users."
         settingKey="webhook_admin_payload_template"
         defaultTemplate={DEFAULT_ADMIN_WEBHOOK_TEMPLATE}
         currentValue={adminValue}
         variables={ADMIN_TEMPLATE_VARIABLES}
         urlSettingKey="autostart_log_webhook_url"
-        urlLabel="Admin Log Webhook URL (wird vom Bot genutzt)"
+        urlLabel="Admin log webhook URL (used by the bot)"
         currentUrl={adminLogUrl}
       />
     </div>

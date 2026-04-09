@@ -36,7 +36,7 @@ export async function grantAdmin(userId: string): Promise<ActionResult> {
       .select('id')
       .eq('id', userId)
       .maybeSingle()
-    if (!user) return { success: false, error: 'User hat sich noch nicht eingeloggt' }
+    if (!user) return { success: false, error: 'User has not logged in yet' }
 
     const { error } = await supabase
       .from('profiles')
@@ -47,7 +47,7 @@ export async function grantAdmin(userId: string): Promise<ActionResult> {
     revalidateAdmin()
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Erteilen der Admin-Rechte') }
+    return { success: false, error: handleActionError(err, 'Failed to grant admin rights') }
   }
 }
 
@@ -55,7 +55,7 @@ export async function revokeAdmin(userId: string): Promise<ActionResult> {
   try {
     const admin = await requireAdmin()
     if (admin.id === userId) {
-      return { success: false, error: 'Du kannst dir nicht selbst die Admin-Rechte entziehen' }
+      return { success: false, error: 'You cannot revoke your own admin rights' }
     }
 
     const supabase = await createServerClient()
@@ -68,7 +68,7 @@ export async function revokeAdmin(userId: string): Promise<ActionResult> {
     revalidateAdmin()
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Entziehen der Admin-Rechte') }
+    return { success: false, error: handleActionError(err, 'Failed to revoke admin rights') }
   }
 }
 
@@ -91,7 +91,7 @@ export async function updateAppSetting(key: string, value: string): Promise<Acti
       if (!isDiscordWebhook) {
         return {
           success: false,
-          error: 'Muss eine gueltige Discord Webhook URL sein (https://discord.com/api/webhooks/...)',
+          error: 'Must be a valid Discord webhook URL (https://discord.com/api/webhooks/...)',
         }
       }
     }
@@ -108,7 +108,7 @@ export async function updateAppSetting(key: string, value: string): Promise<Acti
     revalidatePath('/dashboard/admin/settings')
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Speichern der Einstellung') }
+    return { success: false, error: handleActionError(err, 'Failed to save setting') }
   }
 }
 
@@ -136,7 +136,7 @@ export async function updateWebhookTemplate(
     revalidatePath('/dashboard/admin/webhooks')
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Speichern des Webhook-Templates') }
+    return { success: false, error: handleActionError(err, 'Failed to save webhook template') }
   }
 }
 
@@ -182,7 +182,7 @@ export async function testWebhookTemplate(
     if (!urlRow?.value) {
       return {
         success: false,
-        error: `Keine Webhook URL gesetzt (${urlKey}). Setze die URL oben im Editor.`,
+        error: `No webhook URL set (${urlKey}). Set the URL above in the editor.`,
       }
     }
     const targetUrl = urlRow.value
@@ -196,7 +196,7 @@ export async function testWebhookTemplate(
     if (!payload) {
       return {
         success: false,
-        error: 'Template konnte nicht gerendert werden (invalides JSON nach Substitution).',
+        error: 'Template could not be rendered (invalid JSON after substitution).',
       }
     }
 
@@ -213,6 +213,6 @@ export async function testWebhookTemplate(
 
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Senden des Test-Webhooks') }
+    return { success: false, error: handleActionError(err, 'Failed to send test webhook') }
   }
 }

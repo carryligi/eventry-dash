@@ -24,7 +24,7 @@ export async function togglePinger(isActive: boolean): Promise<ActionResult> {
     revalidatePath('/dashboard/settings')
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Aendern des Pinger-Status') }
+    return { success: false, error: handleActionError(err, 'Failed to change Pinger status') }
   }
 }
 
@@ -50,6 +50,6 @@ export async function updateCooldown(minutes: number): Promise<ActionResult> {
     revalidatePath('/dashboard/settings')
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Aendern des Cooldowns') }
+    return { success: false, error: handleActionError(err, 'Failed to change cooldown') }
   }
 }

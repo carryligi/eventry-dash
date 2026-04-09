@@ -166,10 +166,10 @@ export function EventryImportForm({
           <FileJson className="size-8 text-ev-text-tertiary" />
           <div className="text-center space-y-0.5">
             <p className="text-sm font-medium text-ev-text-secondary">
-              JSON-Datei auswählen
+              Select JSON file
             </p>
             <p className="text-xs text-ev-text-tertiary">
-              Max 1 MB • z.B. <span className="font-mono">eventry_settings_*.json</span>
+              Max 1 MB • e.g. <span className="font-mono">eventry_settings_*.json</span>
             </p>
           </div>
         </label>
@@ -192,7 +192,7 @@ export function EventryImportForm({
             <button
               onClick={() => setParseError(null)}
               className="text-red-400 hover:text-red-300 shrink-0"
-              aria-label="Fehler schließen"
+              aria-label="Dismiss error"
             >
               <X className="size-3.5" />
             </button>

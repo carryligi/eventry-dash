@@ -44,6 +44,6 @@ export async function fetchNotificationLogs(
       },
     }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Laden der Logs') }
+    return { success: false, error: handleActionError(err, 'Failed to load logs') }
   }
 }

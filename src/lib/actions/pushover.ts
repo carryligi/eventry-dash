@@ -45,7 +45,7 @@ export async function setPushoverKey(key: string, priority: number = 0): Promise
     revalidateNotifications()
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Speichern des Pushover Keys') }
+    return { success: false, error: handleActionError(err, 'Failed to save Pushover key') }
   }
 }
 
@@ -62,7 +62,7 @@ export async function removePushoverKey(): Promise<ActionResult> {
     revalidateNotifications()
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Entfernen des Pushover Keys') }
+    return { success: false, error: handleActionError(err, 'Failed to remove Pushover key') }
   }
 }
 
@@ -71,7 +71,7 @@ export async function updatePriority(priority: number): Promise<ActionResult> {
     const profile = await getCurrentUser()
 
     if (priority < 0 || priority > 2) {
-      return { success: false, error: 'Prioritaet muss zwischen 0 und 2 liegen' }
+      return { success: false, error: 'Priority must be between 0 and 2' }
     }
 
     const supabase = await createServerClient()
@@ -84,6 +84,6 @@ export async function updatePriority(priority: number): Promise<ActionResult> {
     revalidateNotifications()
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Aendern der Prioritaet') }
+    return { success: false, error: handleActionError(err, 'Failed to change priority') }
   }
 }

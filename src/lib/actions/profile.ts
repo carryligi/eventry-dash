@@ -34,7 +34,7 @@ export async function updateDiscordUserId(discordUserId: string): Promise<Action
       if (error.code === '23505') {
         return {
           success: false,
-          error: 'Diese Discord User ID ist bereits einem anderen Account zugeordnet',
+          error: 'This Discord User ID is already assigned to another account',
         }
       }
       return { success: false, error: error.message }
@@ -43,6 +43,6 @@ export async function updateDiscordUserId(discordUserId: string): Promise<Action
     revalidatePath('/dashboard/settings')
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Speichern der Discord User ID') }
+    return { success: false, error: handleActionError(err, 'Failed to save Discord User ID') }
   }
 }

@@ -37,7 +37,7 @@ export async function setWebhookUrl(url: string): Promise<ActionResult> {
     revalidateNotifications()
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Speichern der Webhook URL') }
+    return { success: false, error: handleActionError(err, 'Failed to save webhook URL') }
   }
 }
 
@@ -54,7 +54,7 @@ export async function removeWebhookUrl(): Promise<ActionResult> {
     revalidateNotifications()
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Entfernen der Webhook URL') }
+    return { success: false, error: handleActionError(err, 'Failed to remove webhook URL') }
   }
 }
 
@@ -71,7 +71,7 @@ export async function toggleWebhook(isActive: boolean): Promise<ActionResult> {
     revalidateNotifications()
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Aendern des Webhook-Status') }
+    return { success: false, error: handleActionError(err, 'Failed to change webhook status') }
   }
 }
 
@@ -94,7 +94,7 @@ export async function testWebhook(): Promise<ActionResult> {
     ])
 
     if (!settings?.webhook_url) {
-      return { success: false, error: 'Keine Webhook URL konfiguriert' }
+      return { success: false, error: 'No webhook URL configured' }
     }
 
     const template = templateRow?.value && templateRow.value.trim() !== ''
@@ -107,7 +107,7 @@ export async function testWebhook(): Promise<ActionResult> {
       renderWebhookTemplate(DEFAULT_USER_WEBHOOK_TEMPLATE, vars)
 
     if (!payload) {
-      return { success: false, error: 'Template konnte nicht gerendert werden' }
+      return { success: false, error: 'Template could not be rendered' }
     }
 
     const res = await fetch(settings.webhook_url, {
@@ -123,6 +123,6 @@ export async function testWebhook(): Promise<ActionResult> {
 
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Netzwerkfehler beim Testen des Webhooks') }
+    return { success: false, error: handleActionError(err, 'Network error while testing webhook') }
   }
 }

@@ -29,7 +29,7 @@ export function SettingRow({
   const { execute, isPending } = useAction(
     async (newValue: string) => updateAppSetting(settingKey, newValue),
     {
-      successMessage: 'Einstellung gespeichert',
+      successMessage: 'Setting saved',
       onSuccess: () => setIsEditing(false),
     },
   )

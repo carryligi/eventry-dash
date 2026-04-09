@@ -66,8 +66,8 @@ export function EventryImportPreview({
   }
 
   const exportedDate = parsed.meta.exportedAt
-    ? new Date(parsed.meta.exportedAt).toLocaleString('de-DE')
-    : 'unbekannt'
+    ? new Date(parsed.meta.exportedAt).toLocaleString('en-US')
+    : 'unknown'
 
   const userHasExistingData =
     existingDataCounts.keywords > 0 ||
@@ -94,9 +94,9 @@ export function EventryImportPreview({
               {fileName}
             </h3>
             <p className="text-xs text-ev-text-secondary">
-              Exportiert am {exportedDate}
+              Exported on {exportedDate}
               {parsed.meta.exportedByUsername
-                ? ` von ${parsed.meta.exportedByUsername}`
+                ? ` by ${parsed.meta.exportedByUsername}`
                 : ''}
             </p>
           </div>
@@ -106,7 +106,7 @@ export function EventryImportPreview({
       {/* Summary grid */}
       <div className="bg-ev-secondary rounded-xl border border-ev-border-default p-5 space-y-4">
         <h3 className="text-sm font-semibold text-ev-text-primary">
-          Das wird importiert
+          What will be imported
         </h3>
         <div className="grid gap-3 sm:grid-cols-2">
           <PreviewRow
@@ -118,15 +118,15 @@ export function EventryImportPreview({
           <PreviewRow
             icon={Clock}
             label="Pinger"
-            value={`${parsed.pinger.isActive ? 'Aktiv' : 'Inaktiv'}, ${parsed.pinger.cooldownMinutes} Min Cooldown`}
+            value={`${parsed.pinger.isActive ? 'Active' : 'Inactive'}, ${parsed.pinger.cooldownMinutes} min cooldown`}
           />
           <PreviewRow
             icon={Bell}
             label="Pushover"
             value={
               parsed.pushover
-                ? `Key gesetzt, Priority ${parsed.pushover.priority}`
-                : 'nicht vorhanden'
+                ? `Key set, priority ${parsed.pushover.priority}`
+                : 'not set'
             }
             muted={!parsed.pushover}
           />
@@ -135,8 +135,8 @@ export function EventryImportPreview({
             label="Silently"
             value={
               parsed.silently
-                ? `Key gesetzt, min_stock ${parsed.silently.minStock}`
-                : 'nicht vorhanden'
+                ? `Key set, min_stock ${parsed.silently.minStock}`
+                : 'not set'
             }
             muted={!parsed.silently}
           />
@@ -146,7 +146,7 @@ export function EventryImportPreview({
             value={
               parsed.silently?.scheduleStart && parsed.silently?.scheduleEnd
                 ? `${parsed.silently.scheduleStart} – ${parsed.silently.scheduleEnd}`
-                : 'nicht gesetzt'
+                : 'not set'
             }
             muted={
               !parsed.silently?.scheduleStart || !parsed.silently?.scheduleEnd
@@ -158,7 +158,7 @@ export function EventryImportPreview({
             value={
               parsed.webhook
                 ? maskWebhook(parsed.webhook.webhookUrl)
-                : 'nicht vorhanden'
+                : 'not set'
             }
             mono={!!parsed.webhook}
             muted={!parsed.webhook}
@@ -166,13 +166,13 @@ export function EventryImportPreview({
           <PreviewRow
             icon={Package}
             label="Autostart Blacklist"
-            value={`${parsed.autostartDisabledKeywords.length} Keywords`}
+            value={`${parsed.autostartDisabledKeywords.length} keywords`}
             muted={parsed.autostartDisabledKeywords.length === 0}
           />
           <PreviewRow
             icon={Key}
             label="Keywords"
-            value={`${parsed.keywords.length} insgesamt • ${scopedCount} mit Scope${
+            value={`${parsed.keywords.length} total • ${scopedCount} scoped${
               globalCount > 0 ? ` • ${globalCount} global` : ''
             }`}
           />
@@ -182,10 +182,10 @@ export function EventryImportPreview({
           <div className="flex items-start gap-2 rounded-lg border border-ev-border-subtle bg-ev-tertiary p-3">
             <Globe className="size-4 text-ev-text-accent shrink-0 mt-0.5" />
             <p className="text-xs text-ev-text-secondary">
-              {globalCount} Keyword{globalCount === 1 ? '' : 's'} ohne Scope
-              wird als <strong className="text-ev-text-primary">Global</strong>{' '}
-              importiert — matcht in allen vom Bot beobachteten Kategorien und
-              Channels.
+              {globalCount} keyword{globalCount === 1 ? '' : 's'} without scope
+              will be imported as{' '}
+              <strong className="text-ev-text-primary">Global</strong> — matches
+              in all categories and channels the bot watches.
             </p>
           </div>
         )}
@@ -194,7 +194,7 @@ export function EventryImportPreview({
           <div className="rounded-lg border border-ev-border-subtle bg-ev-tertiary p-3 space-y-1">
             <div className="flex items-center gap-2 text-xs font-semibold text-ev-text-secondary">
               <AlertTriangle className="size-3.5 text-amber-400" />
-              Hinweise
+              Notes
             </div>
             <ul className="text-xs text-ev-text-tertiary space-y-0.5 list-disc list-inside">
               {parsed.issues.map((i, idx) => (
@@ -210,15 +210,15 @@ export function EventryImportPreview({
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-1">
           <div className="flex items-center gap-2 text-sm font-semibold text-amber-300">
             <AlertTriangle className="size-4" />
-            Replace All — bestehende Daten werden gelöscht
+            Replace all — existing data will be deleted
           </div>
           <ul className="text-xs text-amber-200/80 space-y-0.5 list-disc list-inside">
             {existingDataCounts.keywords > 0 && (
-              <li>{existingDataCounts.keywords} bestehende Keywords</li>
+              <li>{existingDataCounts.keywords} existing keywords</li>
             )}
-            {existingDataCounts.hasPushover && <li>Aktuelle Pushover-Settings</li>}
-            {existingDataCounts.hasSilently && <li>Aktuelle Silently-Settings</li>}
-            {existingDataCounts.hasWebhook && <li>Aktuelle Webhook-Settings</li>}
+            {existingDataCounts.hasPushover && <li>Current Pushover settings</li>}
+            {existingDataCounts.hasSilently && <li>Current Silently settings</li>}
+            {existingDataCounts.hasWebhook && <li>Current webhook settings</li>}
           </ul>
         </div>
       )}
@@ -230,7 +230,7 @@ export function EventryImportPreview({
           onClick={onCancel}
           disabled={commitAction.isPending}
         >
-          Abbrechen
+          Cancel
         </Button>
         <Button onClick={handleImport} disabled={commitAction.isPending}>
           {commitAction.isPending ? (
@@ -238,7 +238,7 @@ export function EventryImportPreview({
           ) : (
             <Upload className="size-3.5" />
           )}
-          Jetzt importieren
+          Import now
         </Button>
       </div>
     </div>

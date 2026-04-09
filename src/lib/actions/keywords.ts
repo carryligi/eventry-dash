@@ -45,7 +45,7 @@ export async function addKeywords(input: {
       .filter(Boolean)
 
     if (keywordList.length === 0) {
-      return { success: false, error: 'Mindestens ein Keyword eingeben' }
+      return { success: false, error: 'Enter at least one keyword' }
     }
 
     const channelIds = parseIdList(channel_ids)
@@ -67,7 +67,7 @@ export async function addKeywords(input: {
     revalidateKeywordPaths()
     return { success: true, data: { count: keywordList.length } }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Hinzufuegen der Keywords') }
+    return { success: false, error: handleActionError(err, 'Failed to add keywords') }
   }
 }
 
@@ -108,18 +108,18 @@ export async function updateKeyword(input: {
       .single()
 
     if (error) return { success: false, error: error.message }
-    if (!data) return { success: false, error: 'Keyword nicht gefunden' }
+    if (!data) return { success: false, error: 'Keyword not found' }
 
     revalidateKeywordPaths()
     return { success: true, data: { keyword: data as Keyword } }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Aktualisieren des Keywords') }
+    return { success: false, error: handleActionError(err, 'Failed to update keyword') }
   }
 }
 
 export async function deleteKeywords(ids: string[]): Promise<ActionResult> {
   try {
-    if (ids.length === 0) return { success: false, error: 'Keine Keywords ausgewaehlt' }
+    if (ids.length === 0) return { success: false, error: 'No keywords selected' }
 
     const profile = await getCurrentUser()
     const supabase = await createServerClient()
@@ -133,7 +133,7 @@ export async function deleteKeywords(ids: string[]): Promise<ActionResult> {
     revalidateKeywordPaths()
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Loeschen der Keywords') }
+    return { success: false, error: handleActionError(err, 'Failed to delete keywords') }
   }
 }
 
@@ -153,6 +153,6 @@ export async function removeAllKeywords(): Promise<ActionResult> {
     revalidatePath('/dashboard')
     return { success: true, data: undefined }
   } catch (err) {
-    return { success: false, error: handleActionError(err, 'Fehler beim Loeschen aller Keywords') }
+    return { success: false, error: handleActionError(err, 'Failed to delete all keywords') }
   }
 }

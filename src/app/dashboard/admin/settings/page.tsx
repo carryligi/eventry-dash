@@ -45,7 +45,7 @@ export default async function AdminSettingsPage() {
     },
     {
       key: 'allowed_category_ids',
-      label: 'Erlaubte Kategorie-IDs (komma-separiert)',
+      label: 'Allowed category IDs (comma-separated)',
       masked: false,
       readOnly: false,
     },
