@@ -25,8 +25,10 @@ call venv\Scripts\activate.bat
 python -m pip install --upgrade pip --disable-pip-version-check
 
 echo.
-echo [3/3] Installing dependencies (this can take 1-3 minutes)...
-pip install -r requirements.txt --disable-pip-version-check
+echo [3/3] Installing/upgrading dependencies (this can take 1-3 minutes)...
+rem --upgrade ensures pinned minimum versions in requirements.txt actually
+rem pull newer releases (important for realtime-py heartbeat bug fixes).
+pip install -r requirements.txt --upgrade --disable-pip-version-check
 if errorlevel 1 (
     echo [ERROR] Dependency install failed.
     pause
