@@ -10,7 +10,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -44,36 +43,6 @@ type SortDir = 'asc' | 'desc'
 interface KeywordTableProps {
   keywords: Keyword[]
   disabledKeywords: string[]
-}
-
-function ScopeDisplay({ keyword }: { keyword: Keyword }) {
-  const chCount = keyword.channel_ids?.length ?? 0
-  const catCount = keyword.category_ids?.length ?? 0
-  return (
-    <div className="flex items-center gap-1 flex-wrap">
-      {chCount > 0 && (
-        <Badge
-          variant="outline"
-          className="text-[10px] px-1.5 h-4"
-          title={keyword.channel_ids?.join(', ')}
-        >
-          {chCount} ch
-        </Badge>
-      )}
-      {catCount > 0 && (
-        <Badge
-          variant="outline"
-          className="text-[10px] px-1.5 h-4"
-          title={keyword.category_ids?.join(', ')}
-        >
-          {catCount} cat
-        </Badge>
-      )}
-      {chCount === 0 && catCount === 0 && (
-        <span className="text-xs text-ev-text-tertiary">—</span>
-      )}
-    </div>
-  )
 }
 
 export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) {
@@ -263,9 +232,6 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                 </button>
               </TableHead>
               <TableHead>
-                <span className="text-ev-text-secondary">Scope</span>
-              </TableHead>
-              <TableHead>
                 <span className="text-ev-text-secondary">Max Price</span>
               </TableHead>
               <TableHead>
@@ -289,7 +255,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
             {filtered.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell
-                  colSpan={8}
+                  colSpan={7}
                   className="h-24 text-center text-ev-text-tertiary"
                 >
                   {search
@@ -335,9 +301,6 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                       >
                         {kw.internal_name ?? '—'}
                       </span>
-                    </TableCell>
-                    <TableCell>
-                      <ScopeDisplay keyword={kw} />
                     </TableCell>
                     <TableCell>
                       {kw.max_price != null ? (
