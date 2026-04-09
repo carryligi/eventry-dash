@@ -1,12 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Eye, EyeOff, Key, Trash2, Power, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Key, Trash2, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import {
   Dialog,
   DialogContent,
@@ -17,7 +16,7 @@ import {
   DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog'
-import { setSilentlyKey, removeSilentlyKey, toggleAutostart } from '@/lib/actions/silently'
+import { setSilentlyKey, removeSilentlyKey } from '@/lib/actions/silently'
 import { useAction, useActionNoInput } from '@/hooks/use-action'
 import type { SilentlySettings } from '@/types'
 
@@ -50,12 +49,7 @@ export function SilentlyConfig({ settings }: SilentlyConfigProps) {
     { successMessage: 'API key removed' },
   )
 
-  const { execute: executeToggle, isPending: isToggling } = useAction(
-    toggleAutostart,
-    { successMessage: 'Autostart updated' },
-  )
-
-  const isPending = isSettingKey || isRemovingKey || isToggling
+  const isPending = isSettingKey || isRemovingKey
 
   return (
     <Card className="glass-card">
@@ -122,21 +116,6 @@ export function SilentlyConfig({ settings }: SilentlyConfigProps) {
                   {showKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
               </div>
-            </div>
-
-            {/* Connection toggle */}
-            <div className="flex items-center justify-between rounded-lg bg-ev-tertiary border border-ev-border-subtle px-3 py-3">
-              <div className="flex items-center gap-2">
-                <Power className="size-4 text-ev-text-tertiary" />
-                <span className="text-sm font-medium text-ev-text-primary">
-                  Autostart Enabled
-                </span>
-              </div>
-              <Switch
-                checked={settings.is_active}
-                onCheckedChange={(checked) => executeToggle(checked)}
-                disabled={isPending}
-              />
             </div>
 
             {/* Remove key */}
