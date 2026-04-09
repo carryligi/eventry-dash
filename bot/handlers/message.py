@@ -466,7 +466,22 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
 
                 filtered.append(entry)
 
-            # Batch in chunks of 10
+            # Extract embed info for webhook notifications (shared across all chunks)
+            product_title = embed.title or "Unknown Product"
+            price_info = "—"
+            stock_info = "—"
+            for field in embed.fields:
+                fname = (field.name or "").strip().lower()
+                if fname == "price breaks":
+                    price_info = field.value or "—"
+                elif fname == "stock":
+                    stock_info = field.value or "—"
+
+            # Accumulate per-user results for a SINGLE aggregated admin log webhook
+            # sent once after all Silently chunks have been processed.
+            admin_log_results: list[dict] = []
+
+            # Batch in chunks of 10 (Silently API limit)
             for i in range(0, len(filtered), 10):
                 chunk = filtered[i : i + 10]
                 user_keys = [u["key"] for u in chunk]
@@ -477,21 +492,10 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                     api_key=cache.app.silently_api_key,
                 )
 
-                # Extract embed info for webhook notifications
-                product_title = embed.title or "Unknown Product"
-                price_info = "—"
-                stock_info = "—"
-                for field in embed.fields:
-                    fname = (field.name or "").strip().lower()
-                    if fname == "price breaks":
-                        price_info = field.value or "—"
-                    elif fname == "stock":
-                        stock_info = field.value or "—"
-
                 for entry in chunk:
                     uid = entry["user_id"]
 
-                    # Send user webhook notification
+                    # Send user webhook notification (still per-user)
                     wh = cache.webhooks.get(uid)
                     wh_sent = False
                     if wh and wh.webhook_url and wh.is_active:
@@ -511,27 +515,14 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                         except Exception as e:
                             logger.error(f"[WEBHOOK] Failed for {uid}: {e}")
 
-                    # Send admin log webhook (global, in addition to per-user)
-                    log_url = cache.app.autostart_log_webhook_url
-                    if log_url:
-                        try:
-                            webhooks.send_autostart_log_webhook(
-                                log_webhook_url=log_url,
-                                whop_user_id=uid,
-                                discord_user_id=cache.discord_id_by_whop.get(uid),
-                                username=cache.username_by_whop.get(uid),
-                                keyword=entry["keyword"],
-                                quicktask_url=quicktask_url,
-                                product_title=product_title,
-                                price_info=price_info,
-                                stock_info=stock_info,
-                                channel_name=getattr(message.channel, "name", None),
-                                message_jump_url=message.jump_url,
-                                http_status=http_status,
-                                template=cache.app.webhook_admin_payload_template,
-                            )
-                        except Exception as e:
-                            logger.error(f"[LOG WEBHOOK] Failed for {uid}: {e}")
+                    # Collect for the aggregated admin log webhook
+                    admin_log_results.append({
+                        "whop_user_id": uid,
+                        "discord_user_id": cache.discord_id_by_whop.get(uid),
+                        "silently_key": entry["key"],
+                        "keyword": entry["keyword"],
+                        "http_status": http_status,
+                    })
 
                     # Log to notification_log
                     asyncio.create_task(write_notification_log(
@@ -548,6 +539,23 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                         webhook_sent=wh_sent,
                         stock_value=stock_value,
                     ))
+
+            # Send ONE aggregated admin log webhook for this quicktask URL,
+            # containing every user who was triggered in this event.
+            log_url = cache.app.autostart_log_webhook_url
+            if log_url and admin_log_results:
+                try:
+                    webhooks.send_autostart_log_webhook(
+                        log_webhook_url=log_url,
+                        quicktask_url=quicktask_url,
+                        product_title=product_title,
+                        channel_name=getattr(message.channel, "name", None),
+                        message_jump_url=message.jump_url,
+                        results=admin_log_results,
+                        template=cache.app.webhook_admin_payload_template,
+                    )
+                except Exception as e:
+                    logger.error(f"[LOG WEBHOOK] Aggregated send failed: {e}")
 
 
 def _get_max_price(cache: BotCache, user_id: str, keyword: str) -> float | None:

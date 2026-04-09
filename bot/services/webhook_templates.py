@@ -53,15 +53,12 @@ DEFAULT_ADMIN_WEBHOOK_TEMPLATE = r"""{
       "color": {{color}},
       "timestamp": "{{timestamp_iso}}",
       "fields": [
-        { "name": "User",           "value": "{{user_display}}",                         "inline": false },
-        { "name": "Keyword",        "value": "`{{keyword}}`",                            "inline": true  },
-        { "name": "Status",         "value": "{{status_emoji}} {{status}}",              "inline": true  },
-        { "name": "Channel",        "value": "#{{channel_name}}",                        "inline": true  },
         { "name": "Product",        "value": "{{product_title}}",                        "inline": false },
-        { "name": "Price Breaks",   "value": "{{price_info}}",                           "inline": true  },
-        { "name": "Stock",          "value": "{{stock_info}}",                           "inline": true  },
         { "name": "Product Link",   "value": "{{product_link}}",                         "inline": false },
-        { "name": "Source Message", "value": "[Jump to original]({{message_jump_url}})", "inline": false }
+        { "name": "Status",         "value": "{{status_emoji}} {{status_summary}}",      "inline": true  },
+        { "name": "Channel",        "value": "#{{channel_name}}",                        "inline": true  },
+        { "name": "Source Message", "value": "[Jump to original]({{message_jump_url}})", "inline": false },
+        { "name": "Users ({{user_count}})", "value": "{{user_list}}",                    "inline": false }
       ],
       "footer": { "text": "Eventry Admin Log \u2022 {{timestamp_cest}}" }
     }
@@ -142,43 +139,83 @@ def build_user_vars(
 
 def build_admin_vars(
     *,
-    keyword: str,
-    http_status: int,
     product_title: str,
-    price_info: str,
-    stock_info: str,
     product_link: str,
-    message_jump_url: str,
-    user_mention: str,
-    username: str,
-    whop_user_id: str,
     channel_name: str,
+    message_jump_url: str,
+    results: list[dict],
 ) -> dict:
-    """Build the variable dict for the admin log webhook template."""
-    base = build_user_vars(
-        keyword=keyword,
-        http_status=http_status,
-        product_title=product_title,
-        product_description="",
-        price_info=price_info,
-        stock_info=stock_info,
-        product_link=product_link,
-        message_jump_url=message_jump_url,
-    )
-    ok = http_status == 200
-    display_parts: list[str] = []
-    if user_mention:
-        display_parts.append(user_mention)
-    if username:
-        display_parts.append(f"`{username}`")
-    display_parts.append(f"`{whop_user_id}`")
-    user_display = " \u00b7 ".join(display_parts)
-    base.update({
-        "user_display": json_escape(user_display),
-        "user_mention": json_escape(user_mention or ""),
-        "username":     json_escape(username or ""),
-        "whop_user_id": json_escape(whop_user_id or ""),
-        "channel_name": json_escape(channel_name or "—"),
-        "color":        4906624 if ok else 16287345,  # green / red (decimal)
-    })
-    return base
+    """
+    Build the variable dict for the admin log webhook template.
+
+    `results` is a list of dicts — one per user who participated in the same
+    quicktask autostart event. Each dict must contain:
+        { discord_user_id, whop_user_id, silently_key, keyword, http_status }
+
+    The resulting webhook is aggregated into ONE payload (not per user).
+    """
+    now_utc = datetime.now(timezone.utc)
+    now_cest = datetime.now(pytz.timezone("Europe/Berlin"))
+    cest_str = now_cest.strftime("%d.%m.%Y %H:%M:%S CEST")
+
+    user_count = len(results)
+    success_count = sum(1 for r in results if r.get("http_status") == 200)
+    failure_count = user_count - success_count
+
+    if user_count == 0:
+        status_emoji = "\u2753"  # ❓
+        color = 8421504  # gray
+    elif failure_count == 0:
+        status_emoji = "\u2705"  # ✅
+        color = 4906624          # green
+    elif success_count == 0:
+        status_emoji = "\u274c"  # ❌
+        color = 16287345         # red
+    else:
+        status_emoji = "\u26a0\ufe0f"  # ⚠️
+        color = 16753920               # amber
+
+    status_summary = f"{success_count} OK / {failure_count} Failed"
+
+    # Build a multi-line user list: `<@discord>` · `silently_key` · `keyword` · status
+    lines: list[str] = []
+    for r in results:
+        dc_id = r.get("discord_user_id") or ""
+        whop = r.get("whop_user_id") or ""
+        mention = f"<@{dc_id}>" if dc_id else f"`{whop}`"
+        key = r.get("silently_key") or "—"
+        keyword = r.get("keyword") or "—"
+        http = r.get("http_status", 0)
+        ok = http == 200
+        line_status = f"\u2705 {http} OK" if ok else f"\u274c {http} Failed"
+        lines.append(f"{mention} \u00b7 `{key}` \u00b7 `{keyword}` \u00b7 {line_status}")
+
+    # Cap to 1024 chars (Discord field value limit) with graceful truncation
+    user_list = "\n".join(lines)
+    if len(user_list) > 1000:
+        truncated_lines: list[str] = []
+        running = 0
+        for ln in lines:
+            if running + len(ln) + 1 > 950:
+                break
+            truncated_lines.append(ln)
+            running += len(ln) + 1
+        remaining = user_count - len(truncated_lines)
+        truncated_lines.append(f"\u2026 and {remaining} more")
+        user_list = "\n".join(truncated_lines)
+
+    return {
+        "product_title":   json_escape(product_title[:256]),
+        "product_link":    json_escape(product_link),
+        "channel_name":    json_escape(channel_name or "—"),
+        "message_jump_url": json_escape(message_jump_url),
+        "user_list":       json_escape(user_list),
+        "user_count":      str(user_count),
+        "success_count":   str(success_count),
+        "failure_count":   str(failure_count),
+        "status_summary":  json_escape(status_summary),
+        "status_emoji":    status_emoji,
+        "color":           color,
+        "timestamp_iso":   now_utc.isoformat(),
+        "timestamp_cest":  json_escape(cest_str),
+    }

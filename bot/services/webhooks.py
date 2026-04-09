@@ -89,40 +89,33 @@ def send_autostart_webhook(
 
 def send_autostart_log_webhook(
     log_webhook_url: str,
-    whop_user_id: str,
-    discord_user_id: Optional[str],
-    username: Optional[str],
-    keyword: str,
     quicktask_url: str,
     product_title: str,
-    price_info: str,
-    stock_info: str,
     channel_name: Optional[str],
     message_jump_url: str,
-    http_status: int,
+    results: list[dict],
     template: Optional[str] = None,
 ) -> bool:
     """
-    Send an ADMIN-level audit log entry to the global autostart log webhook.
-    Fires once per user per autostart attempt (success or failure).
+    Send a SINGLE aggregated admin audit log entry for one autostart event.
+
+    `results` contains one dict per user who was part of the same quicktask
+    trigger. Required keys per dict:
+        discord_user_id, whop_user_id, silently_key, keyword, http_status
+
+    Previously this function sent one webhook PER user. Now it fires exactly
+    once per quicktask event, with a condensed user list inside the payload.
     """
-    if not log_webhook_url:
+    if not log_webhook_url or not results:
         return False
 
     product_link = _decode_product_link(quicktask_url)
-    user_mention = f"<@{discord_user_id}>" if discord_user_id else ""
     variables = build_admin_vars(
-        keyword=keyword,
-        http_status=http_status,
         product_title=product_title,
-        price_info=price_info,
-        stock_info=stock_info,
         product_link=product_link,
-        message_jump_url=message_jump_url,
-        user_mention=user_mention,
-        username=username or "",
-        whop_user_id=whop_user_id,
         channel_name=channel_name or "",
+        message_jump_url=message_jump_url,
+        results=results,
     )
 
     payload = None
@@ -143,7 +136,9 @@ def send_autostart_log_webhook(
                 f"[LOG WEBHOOK] Delivery failed | Status: {response.status_code}"
             )
             return False
-        logger.info(f"[LOG WEBHOOK] Delivered | User: {whop_user_id} | Keyword: {keyword}")
+        logger.info(
+            f"[LOG WEBHOOK] Delivered | users={len(results)} | product={product_title[:60]}"
+        )
         return True
     except Exception as e:
         logger.error(f"[LOG WEBHOOK] Exception: {e}")
