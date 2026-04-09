@@ -47,3 +47,7 @@ next-env.d.ts
 .superpowers/
 
 .vercel
+
+# remotion
+/remotion/out/
+/remotion/.cache/
