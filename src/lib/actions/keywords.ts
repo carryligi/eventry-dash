@@ -26,6 +26,7 @@ export async function addKeywords(input: {
   keywords: string
   internal_name?: string
   max_price?: number | string
+  min_stock?: number | string
   channel_ids?: string
   category_ids?: string
 }): Promise<ActionResult<{ count: number }>> {
@@ -37,7 +38,7 @@ export async function addKeywords(input: {
       return { success: false, error: parsed.error.issues[0].message }
     }
 
-    const { keywords: rawKeywords, internal_name, max_price, channel_ids, category_ids } = parsed.data
+    const { keywords: rawKeywords, internal_name, max_price, min_stock, channel_ids, category_ids } = parsed.data
 
     const keywordList = rawKeywords
       .split(',')
@@ -58,6 +59,7 @@ export async function addKeywords(input: {
       channel_ids: channelIds,
       category_ids: categoryIds,
       max_price: max_price ?? null,
+      min_stock: min_stock ?? null,
     }))
 
     const supabase = await createServerClient()
@@ -76,6 +78,7 @@ export async function updateKeyword(input: {
   keyword: string
   internal_name?: string
   max_price?: number | string
+  min_stock?: number | string
   channel_ids?: string
   category_ids?: string
 }): Promise<ActionResult<{ keyword: Keyword }>> {
@@ -87,7 +90,7 @@ export async function updateKeyword(input: {
       return { success: false, error: parsed.error.issues[0].message }
     }
 
-    const { id, keyword, internal_name, max_price, channel_ids, category_ids } = parsed.data
+    const { id, keyword, internal_name, max_price, min_stock, channel_ids, category_ids } = parsed.data
 
     const channelIds = parseIdList(channel_ids)
     const categoryIds = parseIdList(category_ids)
@@ -101,6 +104,7 @@ export async function updateKeyword(input: {
         channel_ids: channelIds,
         category_ids: categoryIds,
         max_price: max_price ?? null,
+        min_stock: min_stock ?? null,
       })
       .eq('id', id)
       .eq('user_id', profile.id)

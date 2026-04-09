@@ -300,7 +300,12 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
 
                 if match_ok:
                     keyword_matches.setdefault(kw.keyword, {}).setdefault(cid_str, []).append(
-                        {"user_id": user_id, "keyword_id": kw.id}
+                        {
+                            "user_id": user_id,
+                            "keyword_id": kw.id,
+                            # Per-keyword override; None = fall back to silently.min_stock later.
+                            "kw_min_stock": kw.min_stock,
+                        }
                     )
                     user_ids_to_fetch.add(user_id)
 
@@ -383,12 +388,18 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                         and keyword_autostart_ok
                         and price_ok
                     ):
+                        # Per-keyword min_stock overrides the global silently_settings
+                        # value. None = inherit global (backwards-compatible default).
+                        kw_min_stock = ud.get("kw_min_stock")
+                        effective_min_stock = (
+                            kw_min_stock if kw_min_stock is not None else sl.min_stock
+                        )
                         silently_queue.append({
                             "user_id": user_id,
                             "key": sl.user_key,
                             "keyword_id": keyword_id,
                             "keyword": keyword,
-                            "min_stock": sl.min_stock,
+                            "min_stock": effective_min_stock,
                             "schedule_start": sl.schedule_start,
                             "schedule_end": sl.schedule_end,
                         })

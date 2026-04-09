@@ -34,7 +34,7 @@ export function AutostartFilters({ minStock }: AutostartFiltersProps) {
               Filters
             </CardTitle>
             <CardDescription className="text-ev-text-secondary">
-              Minimum stock threshold for autostart
+              Default minimum stock threshold. Can be overridden per keyword.
             </CardDescription>
           </div>
         </div>
@@ -57,8 +57,8 @@ export function AutostartFilters({ minStock }: AutostartFiltersProps) {
             className="max-w-[200px] bg-ev-tertiary border-ev-border-default text-ev-text-primary"
           />
           <p className="text-xs text-ev-text-tertiary">
-            Only trigger autostart when the detected stock is at or above this value.
-            Set to 0 to disable the filter.
+            Default value used by every keyword unless it has its own min stock set
+            on the Keywords page. Set to 0 to disable the filter globally.
           </p>
         </div>
 

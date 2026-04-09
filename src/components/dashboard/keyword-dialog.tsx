@@ -30,6 +30,11 @@ interface KeywordDialogProps {
   onOpenChange?: (open: boolean) => void
   /** Override the default "+ Add Keywords" trigger button. Pass `null` to render no trigger (controlled mode). */
   trigger?: React.ReactElement | null
+  /**
+   * Global min_stock from silently_settings. Shown as placeholder/fallback hint
+   * when the per-keyword value is empty (NULL). If undefined, falls back to 0.
+   */
+  globalMinStock?: number
 }
 
 export function KeywordDialog({
@@ -37,6 +42,7 @@ export function KeywordDialog({
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
   trigger,
+  globalMinStock,
 }: KeywordDialogProps) {
   const isEdit = !!keyword
   const isControlled = controlledOpen !== undefined
@@ -52,6 +58,10 @@ export function KeywordDialog({
   const [internalName, setInternalName] = useState(keyword?.internal_name ?? '')
   const [maxPrice, setMaxPrice] = useState<string>(
     keyword?.max_price != null ? String(keyword.max_price) : '',
+  )
+  // Empty string = NULL in DB = fall back to global silently_settings.min_stock.
+  const [minStock, setMinStock] = useState<string>(
+    keyword?.min_stock != null ? String(keyword.min_stock) : '',
   )
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>(
     keyword?.channel_ids ?? [],
@@ -74,6 +84,7 @@ export function KeywordDialog({
     setKeywordText(keyword?.keyword ?? '')
     setInternalName(keyword?.internal_name ?? '')
     setMaxPrice(keyword?.max_price != null ? String(keyword.max_price) : '')
+    setMinStock(keyword?.min_stock != null ? String(keyword.min_stock) : '')
     setSelectedChannelIds(keyword?.channel_ids ?? [])
     setSelectedCategoryIds(keyword?.category_ids ?? [])
     setIsGlobal(
@@ -156,6 +167,7 @@ export function KeywordDialog({
     const payload = {
       internal_name: internalName,
       max_price: maxPrice,
+      min_stock: minStock,
       channel_ids:
         !isGlobal && selectedChannelIds.length > 0
           ? selectedChannelIds.join(',')
@@ -339,6 +351,30 @@ export function KeywordDialog({
               value={maxPrice}
               onChange={(e) => setMaxPrice(e.target.value)}
             />
+          </div>
+
+          {/* Min stock — per-keyword autostart threshold */}
+          <div className="space-y-2">
+            <Label htmlFor="kw-min-stock">
+              Min Stock
+              <span className="text-xs ml-1 text-ev-text-tertiary">(optional)</span>
+            </Label>
+            <Input
+              id="kw-min-stock"
+              type="number"
+              step="1"
+              min="0"
+              placeholder={
+                globalMinStock != null
+                  ? `Global (${globalMinStock})`
+                  : 'Global'
+              }
+              value={minStock}
+              onChange={(e) => setMinStock(e.target.value)}
+            />
+            <p className="text-xs text-ev-text-tertiary">
+              Overrides the global autostart threshold for this keyword. Leave empty to use the global value.
+            </p>
           </div>
 
           {formError && <p className="text-xs text-ev-error">{formError}</p>}

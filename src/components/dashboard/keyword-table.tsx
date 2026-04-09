@@ -44,9 +44,14 @@ type SortDir = 'asc' | 'desc'
 interface KeywordTableProps {
   keywords: Keyword[]
   disabledKeywords: string[]
+  /**
+   * Global silently_settings.min_stock — shown as fallback label for keywords
+   * whose per-keyword min_stock is NULL (inheriting the global value).
+   */
+  globalMinStock?: number
 }
 
-export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) {
+export function KeywordTable({ keywords, disabledKeywords, globalMinStock }: KeywordTableProps) {
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<SortField>('created_at')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -236,6 +241,9 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                 <span className="text-ev-text-secondary">Max Price</span>
               </TableHead>
               <TableHead>
+                <span className="text-ev-text-secondary">Min Stock</span>
+              </TableHead>
+              <TableHead>
                 <span className="text-ev-text-secondary">Autostart</span>
               </TableHead>
               <TableHead>
@@ -256,7 +264,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
             {filtered.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="h-24 text-center text-ev-text-tertiary"
                 >
                   {search
@@ -325,6 +333,22 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
                       )}
                     </TableCell>
                     <TableCell>
+                      {kw.min_stock != null ? (
+                        <span className="font-mono text-xs text-ev-text-secondary tabular-nums">
+                          {kw.min_stock}
+                        </span>
+                      ) : (
+                        <span
+                          className="text-xs text-ev-text-tertiary"
+                          title="No per-keyword value — uses the global autostart threshold"
+                        >
+                          {globalMinStock != null
+                            ? `Global (${globalMinStock})`
+                            : 'Global'}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-2">
                         <span
                           className={`inline-block size-1.5 rounded-full flex-shrink-0 ${
@@ -387,6 +411,7 @@ export function KeywordTable({ keywords, disabledKeywords }: KeywordTableProps) 
           if (!next) setEditingKeyword(null)
         }}
         trigger={null}
+        globalMinStock={globalMinStock}
       />
 
       {/* Delete confirmation dialog */}

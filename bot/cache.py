@@ -431,6 +431,7 @@ def _row_to_keyword(row: dict) -> Keyword:
         channel_ids=row.get("channel_ids"),
         category_ids=row.get("category_ids"),
         max_price=float(row["max_price"]) if row.get("max_price") is not None else None,
+        min_stock=int(row["min_stock"]) if row.get("min_stock") is not None else None,
     )
 
 

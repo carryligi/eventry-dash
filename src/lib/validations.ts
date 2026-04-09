@@ -11,10 +11,18 @@ const maxPriceField = z
   .optional()
   .transform(v => (typeof v === 'number' && !isNaN(v) ? v : undefined))
 
+// NULL / empty / undefined → undefined (= DB NULL, use global fallback).
+// Anything else → coerced integer >= 0.
+const minStockField = z
+  .union([z.coerce.number().int().min(0, 'Min stock cannot be negative'), z.literal(''), z.nan()])
+  .optional()
+  .transform(v => (typeof v === 'number' && !isNaN(v) ? v : undefined))
+
 export const addKeywordsSchema = z.object({
   keywords: z.string().min(1, 'Enter at least one keyword'),
   internal_name: z.string().optional(),
   max_price: maxPriceField,
+  min_stock: minStockField,
   channel_ids: z.string().optional(),
   category_ids: z.string().optional(),
 })
@@ -26,6 +34,7 @@ export const updateKeywordSchema = z.object({
   keyword: z.string().min(1, 'Keyword cannot be empty'),
   internal_name: z.string().optional(),
   max_price: maxPriceField,
+  min_stock: minStockField,
   channel_ids: z.string().optional(),
   category_ids: z.string().optional(),
 })

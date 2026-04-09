@@ -27,6 +27,8 @@ export interface Keyword {
   channel_ids: string[] | null
   category_ids: string[] | null
   max_price: number | null
+  /** Per-keyword autostart min stock. NULL = fall back to silently_settings.min_stock. */
+  min_stock: number | null
   created_at: string
   updated_at: string
 }

@@ -11,6 +11,8 @@ class Keyword:
     channel_ids: Optional[list[str]] = None
     category_ids: Optional[list[str]] = None
     max_price: Optional[float] = None
+    # Per-keyword autostart min stock. None = use SilentlySettings.min_stock as global fallback.
+    min_stock: Optional[int] = None
 
 
 @dataclass

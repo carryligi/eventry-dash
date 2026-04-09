@@ -123,6 +123,7 @@ export type Database = {
           internal_name: string | null
           keyword: string
           max_price: number | null
+          min_stock: number | null
           updated_at: string
           user_id: string
         }
@@ -134,6 +135,7 @@ export type Database = {
           internal_name?: string | null
           keyword: string
           max_price?: number | null
+          min_stock?: number | null
           updated_at?: string
           user_id: string
         }
@@ -145,6 +147,7 @@ export type Database = {
           internal_name?: string | null
           keyword?: string
           max_price?: number | null
+          min_stock?: number | null
           updated_at?: string
           user_id?: string
         }
