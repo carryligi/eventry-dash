@@ -65,7 +65,7 @@ export const RawEventryExportSchema = z
       .optional(),
     autostart_disabled_keywords: z.array(z.string()).optional(),
     autostart_max_prices: z.record(z.string(), z.number()).optional(),
-    autostart_webhook: z.string().optional(),
+    autostart_webhook: z.string().nullable().optional(),
   })
   .passthrough()
 
