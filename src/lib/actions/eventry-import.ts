@@ -67,14 +67,21 @@ export async function commitEventryImport(
       }
     }
 
-    // 4. UPDATE profile (Discord ID + onboarded flag)
+    // 4. UPDATE profile (onboarded flag + optional Discord ID)
+    //    discord_user_id is only touched when the import actually provided
+    //    a valid snowflake — otherwise we leave any existing value in place
+    //    so the user can set it later via Settings.
     {
+      const updatePayload: {
+        is_onboarded: true
+        discord_user_id?: string
+      } = { is_onboarded: true }
+      if (parsed.discordUserId) {
+        updatePayload.discord_user_id = parsed.discordUserId
+      }
       const { error } = await supabase
         .from('profiles')
-        .update({
-          discord_user_id: parsed.discordUserId,
-          is_onboarded: true,
-        })
+        .update(updatePayload)
         .eq('id', userId)
       if (error) {
         return {

@@ -112,8 +112,9 @@ export function EventryImportPreview({
           <PreviewRow
             icon={MessageSquare}
             label="Discord User ID"
-            value={parsed.discordUserId}
-            mono
+            value={parsed.discordUserId ?? 'not set'}
+            mono={!!parsed.discordUserId}
+            muted={!parsed.discordUserId}
           />
           <PreviewRow
             icon={Clock}

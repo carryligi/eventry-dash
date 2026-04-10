@@ -22,7 +22,7 @@ export interface ParsedEventryImport {
     exportedByUsername: string | null
     formatVersion: string | null
   }
-  discordUserId: string
+  discordUserId: string | null
   pinger: {
     isActive: boolean
     cooldownMinutes: number
@@ -53,6 +53,8 @@ export type ImportIssueKind =
   | 'duplicate_keyword'
   | 'unmapped_max_price'
   | 'missing_keyword_text'
+  | 'missing_discord_id'
+  | 'invalid_discord_id'
 
 export interface ImportIssue {
   kind: ImportIssueKind
@@ -76,7 +78,7 @@ export interface CommitEventryImportInput {
 }
 
 export interface ImportSummary {
-  discordUserId: string
+  discordUserId: string | null
   keywordsImported: number
   keywordsGlobal: number
   pingerUpdated: boolean
