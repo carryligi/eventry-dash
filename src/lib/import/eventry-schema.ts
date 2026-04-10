@@ -5,13 +5,14 @@ import { z } from 'zod'
 // eventry_settings_<discord_id>.json
 //
 // Unknown top-level fields are passed through (forward-compat).
-// Soft fields (missing/invalid) fall back to defaults; only `discord_user_id`
-// is a hard requirement.
+// ALL fields are optional — missing or invalid values fall back to defaults
+// and are surfaced as `ImportIssue`s in the parser. This lets partial exports
+// (no webhook, no schedule, no Discord ID, etc.) still import cleanly.
 
 export const RawEventryKeywordSchema = z
   .object({
     id: z.string().optional(),
-    keyword: z.string().min(1),
+    keyword: z.string().optional(),
     category_id: z.string().optional(),
     channel_ids: z.array(z.string()).optional(),
     internal_name: z.string().optional(),
@@ -29,10 +30,7 @@ export const RawEventryExportSchema = z
       })
       .passthrough()
       .optional(),
-    discord_user_id: z
-      .string()
-      .trim()
-      .regex(/^[0-9]{17,20}$/, 'discord_user_id must be a 17-20 digit Snowflake'),
+    discord_user_id: z.string().trim().optional(),
     pinger_status: z.boolean().optional(),
     keywords: z.array(RawEventryKeywordSchema).optional(),
     cooldown: z
@@ -59,14 +57,15 @@ export const RawEventryExportSchema = z
     min_stock: z.number().int().optional(),
     autostart_schedule: z
       .object({
-        start: z.string(),
-        end: z.string(),
+        start: z.string().optional(),
+        end: z.string().optional(),
       })
+      .passthrough()
       .nullable()
       .optional(),
     autostart_disabled_keywords: z.array(z.string()).optional(),
     autostart_max_prices: z.record(z.string(), z.number()).optional(),
-    autostart_webhook: z.string().optional(),
+    autostart_webhook: z.string().nullable().optional(),
   })
   .passthrough()
 

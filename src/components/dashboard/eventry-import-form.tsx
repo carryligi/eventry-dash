@@ -146,7 +146,7 @@ export function EventryImportForm({
 
   return (
     <div className="space-y-4">
-      <div className="bg-ev-secondary rounded-xl border border-ev-border-default p-5 space-y-4">
+      <div className="relative bg-ev-secondary rounded-xl border border-ev-border-default p-5 space-y-4">
         <div className="flex items-start gap-3">
           <div className="flex items-center justify-center size-9 rounded-lg bg-ev-tertiary border border-ev-border-subtle shrink-0">
             <Upload className="size-4 text-ev-text-accent" />

@@ -26,8 +26,9 @@ const DISCORD_WEBHOOK_PREFIXES = [
 ]
 
 /** Converts the legacy `"HH.MM"` schedule format into the DB's `"HH:MM"` format.
- *  Returns null if the input is not a valid 24h time. */
-function normalizeScheduleTime(raw: string): string | null {
+ *  Returns null if the input is missing or not a valid 24h time. */
+function normalizeScheduleTime(raw: string | null | undefined): string | null {
+  if (!raw) return null
   // Accept both "14.30" (legacy dot format) and "14:30" (already normalized)
   const normalized = raw.replace('.', ':').trim()
   if (!/^\d{1,2}:\d{2}$/.test(normalized)) return null
@@ -38,6 +39,8 @@ function normalizeScheduleTime(raw: string): string | null {
   if (h < 0 || h > 23 || m < 0 || m > 59) return null
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
+
+const DISCORD_SNOWFLAKE_RE = /^[0-9]{17,20}$/
 
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n))
@@ -67,6 +70,25 @@ export function parseEventryExport(raw: unknown): ParsedEventryImport {
     exportedAt: data.meta?.exported_at ?? null,
     exportedByUsername: data.meta?.exported_by_username ?? null,
     formatVersion: data.meta?.format_version ?? null,
+  }
+
+  // Step 2b: discord_user_id — soft-validated. Missing or malformed
+  // is a warning, not a hard failure. The user can set it later in
+  // Settings → Discord User ID.
+  let discordUserId: string | null = null
+  if (data.discord_user_id === undefined || data.discord_user_id === '') {
+    issues.push({
+      kind: 'missing_discord_id',
+      message:
+        'No Discord User ID in export — set it manually in Settings after import.',
+    })
+  } else if (!DISCORD_SNOWFLAKE_RE.test(data.discord_user_id)) {
+    issues.push({
+      kind: 'invalid_discord_id',
+      message: `Discord User ID "${data.discord_user_id}" is not a valid 17-20 digit snowflake — skipped. Set it manually in Settings.`,
+    })
+  } else {
+    discordUserId = data.discord_user_id
   }
 
   // Step 3: pinger
@@ -232,7 +254,7 @@ export function parseEventryExport(raw: unknown): ParsedEventryImport {
 
   return {
     meta,
-    discordUserId: data.discord_user_id,
+    discordUserId,
     pinger,
     pushover,
     silently,
