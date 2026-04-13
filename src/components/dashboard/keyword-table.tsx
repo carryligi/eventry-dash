@@ -186,23 +186,23 @@ export function KeywordTable({ keywords, disabledKeywords, globalMinStock, pusho
   const [isPushoverPending, startPushoverTransition] = useTransition()
   const [optimisticPushoverDisabled, setOptimisticPushoverDisabled] = useOptimistic(
     pushoverDisabledKeywords,
-    (current: string[], { keyword, enabled }: { keyword: string; enabled: boolean }) => {
+    (current: string[], { keywordId, enabled }: { keywordId: string; enabled: boolean }) => {
       if (enabled) {
-        return current.filter((k) => k !== keyword)
+        return current.filter((k) => k !== keywordId)
       }
-      return [...current, keyword]
+      return [...current, keywordId]
     },
   )
 
   const { execute: executePushover } = useAction(
-    (input: { keyword: string; enabled: boolean }) =>
-      toggleKeywordPushover(input.keyword, input.enabled),
+    (input: { keywordId: string; enabled: boolean }) =>
+      toggleKeywordPushover(input.keywordId, input.enabled),
   )
 
-  const handlePushoverToggle = (keyword: string, enabled: boolean) => {
+  const handlePushoverToggle = (keywordId: string, enabled: boolean) => {
     startPushoverTransition(() => {
-      setOptimisticPushoverDisabled({ keyword, enabled })
-      executePushover({ keyword, enabled })
+      setOptimisticPushoverDisabled({ keywordId, enabled })
+      executePushover({ keywordId, enabled })
     })
   }
 
@@ -212,7 +212,7 @@ export function KeywordTable({ keywords, disabledKeywords, globalMinStock, pusho
   )
 
   const pushoverDisabledSet = useMemo(
-    () => new Set(optimisticPushoverDisabled.map((k) => k.toLowerCase())),
+    () => new Set(optimisticPushoverDisabled),
     [optimisticPushoverDisabled],
   )
 
@@ -502,7 +502,7 @@ export function KeywordTable({ keywords, disabledKeywords, globalMinStock, pusho
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const isPushoverOff = pushoverDisabledSet.has(kw.keyword.toLowerCase())
+                        const isPushoverOff = pushoverDisabledSet.has(kw.id)
                         return (
                           <div
                             className="flex items-center gap-2"
@@ -516,7 +516,7 @@ export function KeywordTable({ keywords, disabledKeywords, globalMinStock, pusho
                             <Switch
                               checked={pushoverGlobalEnabled && !isPushoverOff}
                               onCheckedChange={(checked) =>
-                                handlePushoverToggle(kw.keyword, checked)
+                                handlePushoverToggle(kw.id, checked)
                               }
                               disabled={isPushoverPending || !pushoverGlobalEnabled}
                               size="sm"

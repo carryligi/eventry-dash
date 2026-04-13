@@ -302,22 +302,29 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
-          keyword: string
+          keyword_id: string
           user_id: string
         }
         Insert: {
           created_at?: string | null
           id?: string
-          keyword: string
+          keyword_id: string
           user_id: string
         }
         Update: {
           created_at?: string | null
           id?: string
-          keyword?: string
+          keyword_id?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pushover_disabled_keywords_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "keywords"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pushover_disabled_keywords_user_id_fkey"
             columns: ["user_id"]

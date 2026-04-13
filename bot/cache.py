@@ -87,8 +87,8 @@ class BotCache:
         # so that deletes can resolve back to the set entry.
         # {row_id: (user_id, keyword)}
         self._disabled_id_map: dict[str, tuple[str, str]] = {}
-        # Per-keyword Pushover disabled — same blocklist pattern as autostart
-        # {user_id: set(keyword_text)}
+        # Per-keyword Pushover disabled — keyed by keyword_id (UUID), not text
+        # {user_id: set(keyword_id)}
         self.pushover_disabled: dict[str, set[str]] = defaultdict(set)
         self._pushover_disabled_id_map: dict[str, tuple[str, str]] = {}
         # {user_id: {channel_id: {keyword_id: expiry_datetime}}}
@@ -208,11 +208,11 @@ class BotCache:
         target._pushover_disabled_id_map.clear()
         for row in data:
             uid = row["user_id"]
-            kw = row["keyword"]
+            kid = row["keyword_id"]
             rid = row.get("id")
-            target.pushover_disabled[uid].add(kw)
+            target.pushover_disabled[uid].add(kid)
             if rid:
-                target._pushover_disabled_id_map[str(rid)] = (uid, kw)
+                target._pushover_disabled_id_map[str(rid)] = (uid, kid)
 
     async def _load_cooldowns(self, target):
         data = supabase.table("active_cooldowns").select("*").execute().data or []
@@ -584,18 +584,18 @@ class BotCache:
                     )
                     asyncio.create_task(self._load_pushover_disabled(self))
                     return
-                uid, kw = mapped
-                self.pushover_disabled[uid].discard(kw)
-                logger.info(f"[RT] Pushover disabled keyword removed: {kw} for {uid}")
+                uid, kid = mapped
+                self.pushover_disabled[uid].discard(kid)
+                logger.info(f"[RT] Pushover disabled keyword removed: {kid} for {uid}")
             elif record:
                 uid = record.get("user_id", "")
-                kw = record.get("keyword", "")
+                kid = record.get("keyword_id", "")
                 rid = record.get("id")
-                if uid and kw:
-                    self.pushover_disabled[uid].add(kw)
+                if uid and kid:
+                    self.pushover_disabled[uid].add(kid)
                     if rid:
-                        self._pushover_disabled_id_map[str(rid)] = (uid, kw)
-                    logger.info(f"[RT] Pushover disabled keyword added: {kw} for {uid}")
+                        self._pushover_disabled_id_map[str(rid)] = (uid, kid)
+                    logger.info(f"[RT] Pushover disabled keyword added: {kid} for {uid}")
         except Exception as e:
             logger.error(f"[RT] Error in _on_pushover_disabled_change: {e}")
 

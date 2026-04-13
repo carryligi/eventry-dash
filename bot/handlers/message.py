@@ -351,7 +351,7 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                     # ── Pushover ──
                     po = cache.pushover.get(user_id)
                     po_disabled = cache.pushover_disabled.get(user_id, set())
-                    if po and po.user_key and keyword not in po_disabled:
+                    if po and po.user_key and keyword_id not in po_disabled:
                         try:
                             pushover_sent = pushover.send_pushover(
                                 app_key=cache.app.pushover_app_key,

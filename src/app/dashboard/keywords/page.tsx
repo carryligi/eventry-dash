@@ -25,7 +25,7 @@ export default async function KeywordsPage() {
       .maybeSingle(),
     supabase
       .from('pushover_disabled_keywords')
-      .select('keyword')
+      .select('keyword_id')
       .eq('user_id', userId),
     supabase
       .from('pushover_settings')
@@ -38,7 +38,7 @@ export default async function KeywordsPage() {
     (d: { keyword: string }) => d.keyword
   )
   const pushoverDisabledList = (pushoverDisabledKws ?? []).map(
-    (d: { keyword: string }) => d.keyword
+    (d: { keyword_id: string }) => d.keyword_id
   )
   const pushoverGlobalEnabled = !!pushoverSettings?.user_key
   const globalMinStock = silently?.min_stock ?? 0

@@ -67,7 +67,7 @@ export async function removePushoverKey(): Promise<ActionResult> {
 }
 
 export async function toggleKeywordPushover(
-  keyword: string,
+  keywordId: string,
   enabled: boolean,
 ): Promise<ActionResult> {
   try {
@@ -79,14 +79,14 @@ export async function toggleKeywordPushover(
         .from('pushover_disabled_keywords')
         .delete()
         .eq('user_id', profile.id)
-        .eq('keyword', keyword)
+        .eq('keyword_id', keywordId)
       if (error) return { success: false, error: error.message }
     } else {
       const { error } = await supabase
         .from('pushover_disabled_keywords')
         .upsert(
-          { user_id: profile.id, keyword },
-          { onConflict: 'user_id,keyword' },
+          { user_id: profile.id, keyword_id: keywordId },
+          { onConflict: 'user_id,keyword_id' },
         )
       if (error) return { success: false, error: error.message }
     }
