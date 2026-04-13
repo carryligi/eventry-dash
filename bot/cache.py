@@ -87,6 +87,10 @@ class BotCache:
         # so that deletes can resolve back to the set entry.
         # {row_id: (user_id, keyword)}
         self._disabled_id_map: dict[str, tuple[str, str]] = {}
+        # Per-keyword Pushover disabled — same blocklist pattern as autostart
+        # {user_id: set(keyword_text)}
+        self.pushover_disabled: dict[str, set[str]] = defaultdict(set)
+        self._pushover_disabled_id_map: dict[str, tuple[str, str]] = {}
         # {user_id: {channel_id: {keyword_id: expiry_datetime}}}
         self.active_cooldowns: dict[str, dict[str, dict[str, datetime]]] = defaultdict(
             lambda: defaultdict(dict)
@@ -133,6 +137,7 @@ class BotCache:
             self._load_pushover(dst),
             self._load_webhooks(dst),
             self._load_disabled_keywords(dst),
+            self._load_pushover_disabled(dst),
             self._load_app_settings(dst),
         ]
         if target is None:
@@ -196,6 +201,18 @@ class BotCache:
             target.disabled_keywords[uid].add(kw)
             if rid:
                 target._disabled_id_map[str(rid)] = (uid, kw)
+
+    async def _load_pushover_disabled(self, target):
+        data = supabase.table("pushover_disabled_keywords").select("*").execute().data or []
+        target.pushover_disabled.clear()
+        target._pushover_disabled_id_map.clear()
+        for row in data:
+            uid = row["user_id"]
+            kw = row["keyword"]
+            rid = row.get("id")
+            target.pushover_disabled[uid].add(kw)
+            if rid:
+                target._pushover_disabled_id_map[str(rid)] = (uid, kw)
 
     async def _load_cooldowns(self, target):
         data = supabase.table("active_cooldowns").select("*").execute().data or []
@@ -277,6 +294,7 @@ class BotCache:
             ("pushover_settings", self._on_pushover_change),
             ("webhook_settings", self._on_webhooks_change),
             ("autostart_disabled_keywords", self._on_disabled_kw_change),
+            ("pushover_disabled_keywords", self._on_pushover_disabled_change),
             ("app_settings", self._on_app_settings_change),
         ]
         for table, callback in tables:
@@ -377,6 +395,8 @@ class BotCache:
         tmp.username_by_whop = {}
         tmp.disabled_keywords = defaultdict(set)
         tmp._disabled_id_map = {}
+        tmp.pushover_disabled = defaultdict(set)
+        tmp._pushover_disabled_id_map = {}
         tmp.app = AppSettings()
         # Active cooldowns are owned by this process, not the DB — we keep
         # the live reference and just rebind it on tmp for loader safety.
@@ -398,6 +418,8 @@ class BotCache:
             self.username_by_whop = tmp.username_by_whop
             self.disabled_keywords = tmp.disabled_keywords
             self._disabled_id_map = tmp._disabled_id_map
+            self.pushover_disabled = tmp.pushover_disabled
+            self._pushover_disabled_id_map = tmp._pushover_disabled_id_map
             self.app = tmp.app
         logger.info("[Watchdog] Cache atomically swapped to fresh state")
 
@@ -545,6 +567,37 @@ class BotCache:
                     logger.info(f"[RT] Disabled keyword added: {kw} for {uid}")
         except Exception as e:
             logger.error(f"[RT] Error in _on_disabled_kw_change: {e}")
+
+    def _on_pushover_disabled_change(self, payload):
+        try:
+            etype, record, old = self._extract(payload)
+            if etype == "DELETE":
+                old_id = str(old.get("id", "")) if old else ""
+                if not old_id:
+                    logger.warning("[RT] Pushover disabled keyword DELETE without id in payload — cannot resolve")
+                    return
+                mapped = self._pushover_disabled_id_map.pop(old_id, None)
+                if mapped is None:
+                    logger.warning(
+                        f"[RT] Pushover disabled keyword DELETE id={old_id} not found in reverse map — "
+                        f"cache may be stale, triggering reload"
+                    )
+                    asyncio.create_task(self._load_pushover_disabled(self))
+                    return
+                uid, kw = mapped
+                self.pushover_disabled[uid].discard(kw)
+                logger.info(f"[RT] Pushover disabled keyword removed: {kw} for {uid}")
+            elif record:
+                uid = record.get("user_id", "")
+                kw = record.get("keyword", "")
+                rid = record.get("id")
+                if uid and kw:
+                    self.pushover_disabled[uid].add(kw)
+                    if rid:
+                        self._pushover_disabled_id_map[str(rid)] = (uid, kw)
+                    logger.info(f"[RT] Pushover disabled keyword added: {kw} for {uid}")
+        except Exception as e:
+            logger.error(f"[RT] Error in _on_pushover_disabled_change: {e}")
 
     def _on_app_settings_change(self, payload):
         try:

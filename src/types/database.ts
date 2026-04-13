@@ -298,6 +298,35 @@ export type Database = {
         }
         Relationships: []
       }
+      pushover_disabled_keywords: {
+        Row: {
+          created_at: string | null
+          id: string
+          keyword: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          keyword: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          keyword?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pushover_disabled_keywords_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pushover_settings: {
         Row: {
           priority: number

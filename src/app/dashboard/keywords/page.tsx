@@ -8,7 +8,7 @@ export default async function KeywordsPage() {
   const userId = await getUserId()
   const supabase = await createServerClient()
 
-  const [{ data: keywords }, { data: disabledKws }, { data: silently }] = await Promise.all([
+  const [{ data: keywords }, { data: disabledKws }, { data: silently }, { data: pushoverDisabledKws }, { data: pushoverSettings }] = await Promise.all([
     supabase
       .from('keywords')
       .select('*')
@@ -23,11 +23,24 @@ export default async function KeywordsPage() {
       .select('min_stock')
       .eq('user_id', userId)
       .maybeSingle(),
+    supabase
+      .from('pushover_disabled_keywords')
+      .select('keyword')
+      .eq('user_id', userId),
+    supabase
+      .from('pushover_settings')
+      .select('user_key')
+      .eq('user_id', userId)
+      .maybeSingle(),
   ])
 
   const disabledKeywordsList = (disabledKws ?? []).map(
     (d: { keyword: string }) => d.keyword
   )
+  const pushoverDisabledList = (pushoverDisabledKws ?? []).map(
+    (d: { keyword: string }) => d.keyword
+  )
+  const pushoverGlobalEnabled = !!pushoverSettings?.user_key
   const globalMinStock = silently?.min_stock ?? 0
 
   return (
@@ -45,6 +58,8 @@ export default async function KeywordsPage() {
           keywords={keywords ?? []}
           disabledKeywords={disabledKeywordsList}
           globalMinStock={globalMinStock}
+          pushoverDisabledKeywords={pushoverDisabledList}
+          pushoverGlobalEnabled={pushoverGlobalEnabled}
         />
       </div>
     </>
