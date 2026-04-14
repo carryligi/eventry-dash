@@ -11,8 +11,9 @@ Design goals:
 - Stdlib-only. Runs before pip install — we cannot rely on python-dotenv.
 - Idempotent: subsequent runs with real credentials exit in <50 ms
   with a short skip message.
-- Hidden input via getpass.getpass() so the pasted token never shows
-  up in terminal scrollback.
+- Visible input via plain input() so the user can verify the paste
+  succeeded. Trade-off: the token appears in CMD scrollback. Close
+  the CMD window or run `cls` after setup if that bothers you.
 - Preserves .env structure: comments, blank lines, ordering, and
   non-secret keys (BOT_ROLE, BOT_UPDATE_BRANCH, SUPABASE_URL, etc.)
   remain exactly as they were.
@@ -22,7 +23,6 @@ Design goals:
 
 from __future__ import annotations
 
-import getpass
 import sys
 from pathlib import Path
 
@@ -106,18 +106,15 @@ def write_env_updates(path: Path, updates: dict[str, str]) -> None:
 
 
 def prompt_secret(label: str) -> str:
-    """Read a secret from stdin, hidden if the terminal supports it."""
-    try:
-        # getpass prints the prompt itself and hides the input on
-        # Windows cmd.exe + Unix TTYs. On a piped stdin it falls
-        # back to plain input() without echoing its own warning
-        # unless stdin is a TTY — which is fine for our test harness.
-        return getpass.getpass(f"  {label}: ").strip()
-    except Exception:
-        # Very rare: some stripped-down shells don't support hidden
-        # input. Fall back to plain input().
-        print(f"  {label}: ", end="", flush=True)
-        return input().strip()
+    """Read a value from stdin with VISIBLE input.
+
+    User requested visible input so they can verify the paste worked.
+    Trade-off: the token appears in the CMD scrollback buffer. After
+    setup completes, close the CMD window or type `cls` to clear it
+    if you're worried about the token sitting in the visible history.
+    """
+    print(f"  {label}: ", end="", flush=True)
+    return input().strip()
 
 
 def print_banner() -> None:
@@ -126,7 +123,7 @@ def print_banner() -> None:
     print("=" * 60)
     print(" The following credentials are still placeholders in .env.")
     print(" Paste them now to continue starting the bot.")
-    print(" Input is hidden. Press Ctrl+C to abort.")
+    print(" Input is VISIBLE — you can see what you paste. Ctrl+C to abort.")
     print()
 
 
