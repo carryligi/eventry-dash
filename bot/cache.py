@@ -110,6 +110,9 @@ class BotCache:
         self._reconnect_needed: asyncio.Event = asyncio.Event()
         self._reconnecting: bool = False
         self._watchdog_task: Optional[asyncio.Task] = None
+        # Periodic cache resync — safety net for silently-dropped Realtime
+        # events. See periodic_resync() for details.
+        self._resync_task: Optional[asyncio.Task] = None
 
     # ── Initial full load ────────────────────────────────────────────────
     #
@@ -422,6 +425,44 @@ class BotCache:
             self._pushover_disabled_id_map = tmp._pushover_disabled_id_map
             self.app = tmp.app
         logger.info("[Watchdog] Cache atomically swapped to fresh state")
+
+    # ── Periodic resync ──────────────────────────────────────────────────
+    #
+    # Supabase Realtime occasionally drops UPDATE events silently — a single
+    # lost event on e.g. pushover_settings is enough to leave the cache stuck
+    # with an old priority until the bot restarts or the 1006 watchdog fires.
+    # This task runs in the background and re-reads the small per-user
+    # settings tables from the DB on a fixed interval, so any drift self-heals
+    # within `interval_seconds`. The hot path (on_message) still reads from
+    # the in-memory cache — this task only overwrites the same dicts in place.
+    async def periodic_resync(self, interval_seconds: int = 60):
+        """Safety net against silent Realtime drops: reload small settings
+        tables from the DB every `interval_seconds`.
+
+        Only reloads per-user settings that are safe to overwrite in place.
+        Does NOT touch `keywords` (large, handled by realtime + reconnect),
+        `active_cooldowns` (process-owned), or the disabled_keywords maps
+        (which rely on id-reverse lookups that reloading would invalidate).
+        """
+        logger.info(f"[Resync] Periodic resync started (interval={interval_seconds}s)")
+        while True:
+            try:
+                await asyncio.sleep(interval_seconds)
+                async with self._lock:
+                    await asyncio.gather(
+                        self._load_pinger(self),
+                        self._load_silently(self),
+                        self._load_pushover(self),
+                        self._load_webhooks(self),
+                        self._load_app_settings(self),
+                    )
+                logger.debug("[Resync] Periodic settings reload complete")
+            except asyncio.CancelledError:
+                logger.info("[Resync] Periodic resync cancelled")
+                raise
+            except Exception as e:
+                logger.error(f"[Resync] Periodic reload failed: {e}", exc_info=True)
+                # Don't spin on errors — wait the full interval before retrying.
 
     # ── Payload helper ───────────────────────────────────────────────────
     # Supabase Realtime v2 delivers payloads as:

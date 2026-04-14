@@ -54,6 +54,12 @@ async def on_ready():
     if cache._watchdog_task is None or cache._watchdog_task.done():
         cache._watchdog_task = asyncio.create_task(cache.watchdog())
 
+    # Start the periodic cache resync task. Safety net for silently-dropped
+    # Realtime events — re-reads small settings tables from the DB every 60s
+    # so stale priorities / keys / webhooks self-heal without a bot restart.
+    if cache._resync_task is None or cache._resync_task.done():
+        cache._resync_task = asyncio.create_task(cache.periodic_resync(60))
+
     bot_start_time = discord.utils.utcnow()
     logger.info(f"Bot ready: {bot.user} | Guild: {GUILD_ID}")
     logger.info(f"Cache: {sum(len(v) for v in cache.keywords.values())} keywords loaded")
