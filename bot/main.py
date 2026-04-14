@@ -13,11 +13,50 @@ from config import DISCORD_BOT_TOKEN, GUILD_ID
 from cache import BotCache
 from handlers.message import handle_message
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+
+class CleanFormatter(logging.Formatter):
+    """Terse formatter: ``HH:MM:SS  message`` for INFO, with a level
+    prefix for WARNING and above. No logger name, no full date — the
+    goal is one glanceable line per event, not structured parsing.
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        ts = self.formatTime(record, "%H:%M:%S")
+        msg = record.getMessage()
+        if record.exc_info:
+            msg = f"{msg}\n{self.formatException(record.exc_info)}"
+        if record.levelno >= logging.WARNING:
+            return f"{ts}  [{record.levelname}] {msg}"
+        return f"{ts}  {msg}"
+
+
+_handler = logging.StreamHandler()
+_handler.setFormatter(CleanFormatter())
+logging.basicConfig(level=logging.INFO, handlers=[_handler], force=True)
+
+# Silence noisy third-party libraries. Their INFO output otherwise
+# spams the console with Discord gateway events, httpx HTTP request
+# lines, and — most importantly — full Realtime WebSocket payloads
+# which include the Supabase service_role JWT in cleartext. Keeping
+# them at WARNING means we still see genuine problems without the
+# per-message noise and without accidentally leaking the token.
+for _noisy in (
+    "httpx",
+    "httpcore",
+    "discord",
+    "discord.client",
+    "discord.gateway",
+    "discord.http",
+    "discord.state",
+    "realtime",
+    "realtime._async.client",
+    "realtime._async.channel",
+    "websockets",
+    "websockets.client",
+    "urllib3",
+):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 # Discord client setup

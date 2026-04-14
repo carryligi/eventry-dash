@@ -340,7 +340,11 @@ class BotCache:
 
             await channel.subscribe(_make_status_cb(table))
             self._realtime_channels.append(channel)
-            logger.info(f"Subscribed to Realtime: {table}")
+            # Intentionally no log here — the status callback
+            # `_make_status_cb` logs "[RT] {table}: SUBSCRIBED" once
+            # the server confirms the subscription, which is more
+            # informative than the "we asked" notice here. Having
+            # both produces 18 lines at startup instead of 9.
 
     # ── Watchdog + atomic reconnect ──────────────────────────────────────
 

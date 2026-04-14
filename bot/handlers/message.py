@@ -322,6 +322,13 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                         }
                     )
                     user_ids_to_fetch.add(user_id)
+                    # User-facing activity log — one line per (user, keyword, channel)
+                    # that actually passes the matching filters. Gives a live feed
+                    # of "what the bot is reacting to" without the downstream DM
+                    # success noise.
+                    _uname = cache.username_by_whop.get(user_id) or user_id[:12]
+                    _cname = getattr(message.channel, "name", cid_str)
+                    logger.info(f"[MATCH] {_uname} | '{kw.keyword}' | #{_cname}")
 
         if not keyword_matches:
             continue
