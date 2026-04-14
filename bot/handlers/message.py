@@ -13,7 +13,7 @@ import discord
 import pytz
 
 from cache import BotCache
-from config import GUILD_ID, TARGET_CATEGORIES, supabase
+from config import GUILD_ID, TARGET_CATEGORIES, supabase, BOT_ROLE
 from services import pushover, silently, webhooks
 from services.supabase_db import write_notification_log, write_cooldown
 
@@ -265,6 +265,19 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
         user_ids_to_fetch: set[str] = set()
 
         for user_id, user_keywords in cache.keywords.items():
+            # ── Test bot filter ──
+            # BOT_ROLE=test        → process ONLY admins (profiles.is_admin=true)
+            # BOT_ROLE=production  → process EVERYONE (no filter)
+            #
+            # The test bot is meant to run temporarily alongside the prod bot
+            # when you're verifying changes. When both are live, admins get
+            # double-pings (one from prod, one from test) — that's acceptable
+            # and keeps admins from losing notifications while the test bot
+            # is off. Admin membership is read from profiles.is_admin and
+            # kept in sync via _on_profile_change + periodic_resync.
+            if BOT_ROLE == "test" and user_id not in cache.admin_ids:
+                continue
+
             # NOTE: Global Pinger (pinger_settings.is_active) is NO LONGER a
             # full-user gate here — it only disables DM + Pushover further
             # down. Users with pinger OFF must still reach the Silently

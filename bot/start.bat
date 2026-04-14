@@ -20,12 +20,19 @@ if not exist "venv" (
 )
 
 echo.
-echo [2/3] Activating venv and upgrading pip...
+echo [2/4] Activating venv and upgrading pip...
 call venv\Scripts\activate.bat
 python -m pip install --upgrade pip --disable-pip-version-check
 
 echo.
-echo [3/3] Installing/upgrading dependencies (this can take 1-3 minutes)...
+echo [3/4] Checking for bot updates from GitHub (main)...
+rem Runs BEFORE pip install so any new requirements.txt is picked up by
+rem the dependency step below. Soft-fails on network errors — bot will
+rem still boot with the current local version.
+python updater.py
+
+echo.
+echo [4/4] Installing/upgrading dependencies (this can take 1-3 minutes)...
 rem --upgrade ensures pinned minimum versions in requirements.txt actually
 rem pull newer releases (important for realtime-py heartbeat bug fixes).
 pip install -r requirements.txt --upgrade --disable-pip-version-check

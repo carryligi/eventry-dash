@@ -79,6 +79,11 @@ class BotCache:
         self.discord_id_by_whop: dict[str, str] = {}
         # {whop_user_id: username} — used by admin log webhook for readable user display
         self.username_by_whop: dict[str, str] = {}
+        # Whop user IDs of admins (profiles.is_admin=true). Used by the
+        # test-bot filter in handlers/message.py — the test bot
+        # (BOT_ROLE=test) only processes users in this set. The prod bot
+        # ignores the set entirely and processes everyone.
+        self.admin_ids: set[str] = set()
         # {user_id: set(keyword_text)}
         self.disabled_keywords: dict[str, set[str]] = defaultdict(set)
         # Reverse lookup for Realtime DELETE events on `autostart_disabled_keywords`.
@@ -156,19 +161,30 @@ class BotCache:
     async def _load_profiles(self, target):
         data = (
             supabase.table("profiles")
-            .select("id, discord_user_id, username")
+            .select("id, discord_user_id, username, is_admin")
             .execute()
             .data
             or []
         )
-        target.discord_id_by_whop.clear()
-        target.username_by_whop.clear()
+        # Build fresh collections locally, then atomically rebind on target.
+        # periodic_resync() calls this on `self` while on_message is actively
+        # reading admin_ids / discord_id_by_whop — a clear()+refill sequence
+        # would briefly expose an empty collection to readers. Python attribute
+        # rebinds are GIL-atomic, so swapping the whole dict/set is safe.
+        new_discord: dict[str, str] = {}
+        new_username: dict[str, str] = {}
+        new_admins: set[str] = set()
         for row in data:
             wid = row["id"]
             if row.get("discord_user_id"):
-                target.discord_id_by_whop[wid] = row["discord_user_id"]
+                new_discord[wid] = row["discord_user_id"]
             if row.get("username"):
-                target.username_by_whop[wid] = row["username"]
+                new_username[wid] = row["username"]
+            if row.get("is_admin"):
+                new_admins.add(wid)
+        target.discord_id_by_whop = new_discord
+        target.username_by_whop = new_username
+        target.admin_ids = new_admins
 
     async def _load_keywords(self, target):
         data = supabase.table("keywords").select("*").execute().data or []
@@ -396,6 +412,7 @@ class BotCache:
         tmp.webhooks = {}
         tmp.discord_id_by_whop = {}
         tmp.username_by_whop = {}
+        tmp.admin_ids = set()
         tmp.disabled_keywords = defaultdict(set)
         tmp._disabled_id_map = {}
         tmp.pushover_disabled = defaultdict(set)
@@ -419,6 +436,7 @@ class BotCache:
             self.webhooks = tmp.webhooks
             self.discord_id_by_whop = tmp.discord_id_by_whop
             self.username_by_whop = tmp.username_by_whop
+            self.admin_ids = tmp.admin_ids
             self.disabled_keywords = tmp.disabled_keywords
             self._disabled_id_map = tmp._disabled_id_map
             self.pushover_disabled = tmp.pushover_disabled
@@ -450,6 +468,7 @@ class BotCache:
                 await asyncio.sleep(interval_seconds)
                 async with self._lock:
                     await asyncio.gather(
+                        self._load_profiles(self),
                         self._load_pinger(self),
                         self._load_silently(self),
                         self._load_pushover(self),
@@ -488,6 +507,7 @@ class BotCache:
             if etype == "DELETE" and old.get("id"):
                 self.discord_id_by_whop.pop(old["id"], None)
                 self.username_by_whop.pop(old["id"], None)
+                self.admin_ids.discard(old["id"])
                 logger.info(f"[RT] Profile deleted: {old['id']}")
             elif record and "id" in record:
                 whop_id = record["id"]
@@ -503,6 +523,18 @@ class BotCache:
                     self.username_by_whop[whop_id] = username
                 else:
                     self.username_by_whop.pop(whop_id, None)
+                # Track is_admin for the test/prod bot split. A missing key
+                # in the UPDATE payload is treated as "not admin" because
+                # Supabase Realtime always sends the full row on UPDATE when
+                # REPLICA IDENTITY FULL is set.
+                if record.get("is_admin"):
+                    if whop_id not in self.admin_ids:
+                        self.admin_ids.add(whop_id)
+                        logger.info(f"[RT] Admin added: {whop_id}")
+                else:
+                    if whop_id in self.admin_ids:
+                        self.admin_ids.discard(whop_id)
+                        logger.info(f"[RT] Admin removed: {whop_id}")
         except Exception as e:
             logger.error(f"[RT] Error in _on_profile_change: {e}")
 

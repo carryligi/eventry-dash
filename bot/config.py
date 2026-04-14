@@ -9,6 +9,21 @@ DISCORD_BOT_TOKEN: str = os.environ["DISCORD_BOT_TOKEN"]
 SUPABASE_URL: str = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_ROLE_KEY: str = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 
+# Bot role — controls which users this instance processes:
+#   production (default) → processes every user (no filter)
+#   test                 → processes ONLY admins (profiles.is_admin=true),
+#                          meant to run temporarily alongside prod while
+#                          you're verifying changes.
+# When both instances are live, admin users intentionally receive two
+# notifications per match (one from each bot's Discord token). When the
+# test bot is stopped, admins behave like any other user and get their
+# normal notifications from the prod bot.
+BOT_ROLE: str = os.environ.get("BOT_ROLE", "production").strip().lower()
+if BOT_ROLE not in ("production", "test"):
+    raise ValueError(
+        f"BOT_ROLE must be 'production' or 'test', got {BOT_ROLE!r}"
+    )
+
 # Discord constants
 GUILD_ID = 1341267240540180542
 
