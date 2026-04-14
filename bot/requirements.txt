@@ -1,10 +1,22 @@
 discord.py>=2.3.0
-# supabase + realtime pinned to recent releases: older realtime-py has a
-# known bug where the heartbeat task silently dies and the server closes
-# the WebSocket with code 1006. The bot's watchdog in cache.py is the
-# safety net, but pinning reduces how often it has to fire.
-supabase>=2.20.0,<3.0.0
-realtime>=2.20.0,<3.0.0
+# supabase-py pinned EXACT to 2.24.0. Do NOT bump without testing a
+# fresh Windows venv install first.
+#
+# Why pinned:
+#   - 2.19.0 and 2.20.0 were yanked by the maintainer ("non fixed
+#     dependencies may cause breakage with future incompatible changes")
+#   - 2.25.0+ resolves storage3>=2.25.0, which transitively depends on
+#     pyiceberg + pyroaring + mmh3. All three are C extensions with no
+#     prebuilt wheels for newer CPython on Windows, so pip tries to
+#     compile from source and fails with "Microsoft Visual C++ 14.0 or
+#     greater is required" unless MSVC Build Tools are installed.
+#   - 2.24.0 is the last version where storage3 (2.24.0) is still pure
+#     Python and ships with realtime 2.24.0 (heartbeat bug long fixed).
+#
+# realtime is pulled transitively by supabase==2.24.0 — we no longer
+# need to pin it explicitly. The watchdog in cache.py remains the
+# safety net against any residual 1006 WebSocket closures.
+supabase==2.24.0
 python-dotenv>=1.0.0
 requests>=2.31.0
 pytz>=2024.1
