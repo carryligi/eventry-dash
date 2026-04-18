@@ -87,17 +87,24 @@ async def on_ready():
     except Exception as e:
         logger.error(f"Realtime subscribe failed on startup: {e}", exc_info=True)
 
-    # Start the Realtime watchdog. on_ready can fire multiple times when
-    # discord.py reconnects, so only start a new task if the previous one
-    # is absent or already finished.
+    # Start Realtime supervisor tasks. on_ready can fire multiple times when
+    # discord.py reconnects, so each task is only (re)spawned when the
+    # previous one is absent or has already finished.
+    # - watchdog: reacts to _reconnect_needed from any source
+    # - periodic_resync: every 60s re-reads per-user settings from DB so a
+    #   silently-dropped UPDATE doesn't leave priority/keys/webhooks stale
+    # - heartbeat_writer: self-upserts to app_settings so we can detect a
+    #   dead Realtime WS even when it doesn't log a close
+    # - staleness_watchdog: forces reconnect if no RT events arrive for too
+    #   long — the proactive counterpart to the log-scraping detector
     if cache._watchdog_task is None or cache._watchdog_task.done():
         cache._watchdog_task = asyncio.create_task(cache.watchdog())
-
-    # Start the periodic cache resync task. Safety net for silently-dropped
-    # Realtime events — re-reads small settings tables from the DB every 60s
-    # so stale priorities / keys / webhooks self-heal without a bot restart.
     if cache._resync_task is None or cache._resync_task.done():
         cache._resync_task = asyncio.create_task(cache.periodic_resync(60))
+    if cache._heartbeat_task is None or cache._heartbeat_task.done():
+        cache._heartbeat_task = asyncio.create_task(cache.heartbeat_writer())
+    if cache._staleness_task is None or cache._staleness_task.done():
+        cache._staleness_task = asyncio.create_task(cache.staleness_watchdog())
 
     bot_start_time = discord.utils.utcnow()
     logger.info(f"Bot ready: {bot.user} | Guild: {GUILD_ID}")
