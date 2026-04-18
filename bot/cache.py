@@ -817,10 +817,13 @@ class BotCache:
             if record:
                 key, val = record.get("key", ""), record.get("value", "") or ""
                 # Bot-owned liveness probe: the echo is the whole point (it
-                # refreshes _last_rt_event_at via _touch above). No state to
-                # update and no log line — otherwise every 60s there'd be a
-                # spurious "App setting updated: _bot_rt_heartbeat" line.
+                # refreshes _last_rt_event_at via _touch above). One terse
+                # log per echo proves end-to-end that Bot → DB → Supabase
+                # Realtime → WS → Bot is alive right now. Skip the generic
+                # "App setting updated: ..." line below — that's misleading
+                # since there is no actual state change.
                 if key == HEARTBEAT_KEY:
+                    logger.info("[Heartbeat] echo received (WS alive)")
                     return
                 if key == "silently_api_key":
                     self.app.silently_api_key = val
