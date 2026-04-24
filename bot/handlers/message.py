@@ -473,9 +473,10 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                     elif not keyword_autostart_ok:
                         logger.info(f"[DISABLED KW] Skip {user_id} | '{keyword}'")
 
-                    # ── Cooldown ──
-                    # Reuses `pinger` computed above for the DM/Pushover gate.
-                    if dm_sent and pinger and pinger.cooldown_minutes > 0:
+                    # ── Cooldown (after DM/Pushover path) ──
+                    # Greift sobald *irgendeine* dieser beiden Notifications raus ist.
+                    # Silently + Webhook setzen ihren Cooldown separat nach dem Batch.
+                    if (dm_sent or pushover_sent) and pinger and pinger.cooldown_minutes > 0:
                         expiry = current_time + timedelta(minutes=pinger.cooldown_minutes)
                         cache.set_cooldown(user_id, channel_id_str, keyword_id, expiry)
                         asyncio.create_task(write_cooldown(user_id, channel_id_str, keyword_id, expiry))
@@ -595,6 +596,21 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                             )
                         except Exception as e:
                             logger.error(f"[WEBHOOK] Failed for {uid}: {e}")
+
+                    # ── Cooldown (after Silently/Webhook path) ──
+                    # Idempotent mit dem DM/Pushover-Cooldown oben: active_cooldowns
+                    # hat UNIQUE (user, channel, keyword), cache.set_cooldown überschreibt.
+                    # Skip wenn DM oder Pushover für diesen Match schon gefeuert haben —
+                    # dann wurde der Cooldown bereits gesetzt (spart DB-Write + Log-Noise).
+                    _cd_already = entry.get("dm_sent") or entry.get("pushover_sent")
+                    _sl_or_wh_fired = success or wh_sent
+                    _pinger = cache.pinger.get(uid)
+                    if _sl_or_wh_fired and not _cd_already and _pinger and _pinger.cooldown_minutes > 0:
+                        _expiry = current_time + timedelta(minutes=_pinger.cooldown_minutes)
+                        _cid = str(message.channel.id)
+                        cache.set_cooldown(uid, _cid, entry["keyword_id"], _expiry)
+                        asyncio.create_task(write_cooldown(uid, _cid, entry["keyword_id"], _expiry))
+                        logger.info(f"[COOLDOWN SET] {uid} | KW {entry['keyword_id']} | via Silently/Webhook")
 
                     # Collect for the aggregated admin log webhook
                     admin_log_results.append({
