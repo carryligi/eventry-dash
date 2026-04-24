@@ -13,7 +13,7 @@ import discord
 import pytz
 
 from cache import BotCache
-from config import GUILD_ID, TARGET_CATEGORIES
+from config import GUILD_ID, TARGET_CATEGORIES, supabase, BOT_ROLE
 from services import pushover, silently, webhooks
 from services.supabase_db import write_notification_log, write_cooldown
 
@@ -265,10 +265,24 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
         user_ids_to_fetch: set[str] = set()
 
         for user_id, user_keywords in cache.keywords.items():
-            # Check pinger is active
-            pinger = cache.pinger.get(user_id)
-            if not pinger or not pinger.is_active:
+            # ── Test bot filter ──
+            # BOT_ROLE=test        → process ONLY admins (profiles.is_admin=true)
+            # BOT_ROLE=production  → process EVERYONE (no filter)
+            #
+            # The test bot is meant to run temporarily alongside the prod bot
+            # when you're verifying changes. When both are live, admins get
+            # double-pings (one from prod, one from test) — that's acceptable
+            # and keeps admins from losing notifications while the test bot
+            # is off. Admin membership is read from profiles.is_admin and
+            # kept in sync via _on_profile_change + periodic_resync.
+            if BOT_ROLE == "test" and user_id not in cache.admin_ids:
                 continue
+
+            # NOTE: Global Pinger (pinger_settings.is_active) is NO LONGER a
+            # full-user gate here — it only disables DM + Pushover further
+            # down. Users with pinger OFF must still reach the Silently
+            # autostart + autostart webhook paths, which are orthogonal to
+            # the notification toggle.
 
             for kw in user_keywords:
                 if kw.keyword not in embed_text:
@@ -308,6 +322,13 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                         }
                     )
                     user_ids_to_fetch.add(user_id)
+                    # User-facing activity log — one line per (user, keyword, channel)
+                    # that actually passes the matching filters. Gives a live feed
+                    # of "what the bot is reacting to" without the downstream DM
+                    # success noise.
+                    _uname = cache.username_by_whop.get(user_id) or user_id[:12]
+                    _cname = getattr(message.channel, "name", cid_str)
+                    logger.info(f"[MATCH] {_uname} | '{kw.keyword}' | #{_cname}")
 
         if not keyword_matches:
             continue
@@ -333,35 +354,76 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                     silently_success = None
                     webhook_sent = False
 
-                    # ── DM notification ──
-                    dm_embed = discord.Embed(
-                        title="Keyword Match Found",
-                        color=0xADADAD,
-                        timestamp=datetime.now(timezone.utc),
-                    )
-                    dm_embed.add_field(name="Keyword", value=f'"{keyword}"', inline=False)
-                    dm_embed.add_field(name="User", value=user.mention, inline=False)
-                    dm_embed.add_field(name="Message Link", value=message.jump_url, inline=False)
-                    try:
-                        await user.send(embed=dm_embed)
-                        dm_sent = True
-                    except Exception as e:
-                        logger.error(f"DM failed for {user_id}: {e}")
+                    # Global Pinger gate — only affects DM + Pushover below.
+                    # Silently + autostart webhooks further down are
+                    # orthogonal and must still fire when pinger is off.
+                    pinger = cache.pinger.get(user_id)
+                    pinger_on = bool(pinger and pinger.is_active)
 
-                    # ── Pushover ──
-                    po = cache.pushover.get(user_id)
-                    if po and po.user_key:
+                    # ── DM notification (pinger-gated) ──
+                    if pinger_on:
+                        dm_embed = discord.Embed(
+                            title="Keyword Match Found",
+                            color=0xADADAD,
+                            timestamp=datetime.now(timezone.utc),
+                        )
+                        dm_embed.add_field(name="Keyword", value=f'"{keyword}"', inline=False)
+                        dm_embed.add_field(name="User", value=user.mention, inline=False)
+                        dm_embed.add_field(name="Message Link", value=message.jump_url, inline=False)
                         try:
-                            pushover_sent = pushover.send_pushover(
-                                app_key=cache.app.pushover_app_key,
-                                user_key=po.user_key,
-                                title=f"Keyword Match: {keyword}",
-                                message=pushover_msg,
-                                url=quicktask_url,
-                                priority=po.priority,
+                            await user.send(embed=dm_embed)
+                            dm_sent = True
+                        except Exception as e:
+                            logger.error(f"DM failed for {user_id}: {e}")
+
+                    # ── Pushover (pinger-gated) ──
+                    # Cache is used only as a cheap "does this user have pushover at all?"
+                    # gate. The actual user_key and priority are re-read fresh from the DB
+                    # right before sending, because cache.pushover is realtime-only and
+                    # can drift silently (single lost UPDATE event = stale priority until
+                    # bot restart). Cost: one single-row PK lookup per pushover send.
+                    po = cache.pushover.get(user_id)
+                    po_disabled = cache.pushover_disabled.get(user_id, set())
+                    if pinger_on and po and po.user_key and keyword_id not in po_disabled:
+                        try:
+                            fresh_rows = (
+                                supabase.table("pushover_settings")
+                                .select("user_key, priority")
+                                .eq("user_id", user_id)
+                                .limit(1)
+                                .execute()
+                                .data
+                                or []
                             )
                         except Exception as e:
-                            logger.error(f"Pushover exception for {user_id}: {e}")
+                            logger.warning(
+                                f"[Pushover] Fresh read failed for {user_id}, "
+                                f"falling back to cache: {e}"
+                            )
+                            fresh_rows = None
+
+                        if fresh_rows:
+                            po_user_key = fresh_rows[0].get("user_key") or po.user_key
+                            po_priority = fresh_rows[0].get("priority", po.priority)
+                        else:
+                            # Fresh read failed OR the row was deleted since the cache
+                            # was populated. Fall back to cache so we don't silently
+                            # drop notifications on transient DB hiccups.
+                            po_user_key = po.user_key
+                            po_priority = po.priority
+
+                        if po_user_key:
+                            try:
+                                pushover_sent = pushover.send_pushover(
+                                    app_key=cache.app.pushover_app_key,
+                                    user_key=po_user_key,
+                                    title=f"Keyword Match: {keyword}",
+                                    message=pushover_msg,
+                                    url=quicktask_url,
+                                    priority=po_priority,
+                                )
+                            except Exception as e:
+                                logger.error(f"Pushover exception for {user_id}: {e}")
 
                     # ── Silently autostart filter ──
                     sl = cache.silently.get(user_id)
@@ -402,13 +464,19 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                             "min_stock": effective_min_stock,
                             "schedule_start": sl.schedule_start,
                             "schedule_end": sl.schedule_end,
+                            # Remember whether DM was actually sent for this
+                            # match so the silently-path notification_log
+                            # doesn't lie when pinger was off.
+                            "dm_sent": dm_sent,
+                            "pushover_sent": pushover_sent,
                         })
                     elif not keyword_autostart_ok:
                         logger.info(f"[DISABLED KW] Skip {user_id} | '{keyword}'")
 
-                    # ── Cooldown ──
-                    pinger = cache.pinger.get(user_id)
-                    if dm_sent and pinger and pinger.cooldown_minutes > 0:
+                    # ── Cooldown (after DM/Pushover path) ──
+                    # Greift sobald *irgendeine* dieser beiden Notifications raus ist.
+                    # Silently + Webhook setzen ihren Cooldown separat nach dem Batch.
+                    if (dm_sent or pushover_sent) and pinger and pinger.cooldown_minutes > 0:
                         expiry = current_time + timedelta(minutes=pinger.cooldown_minutes)
                         cache.set_cooldown(user_id, channel_id_str, keyword_id, expiry)
                         asyncio.create_task(write_cooldown(user_id, channel_id_str, keyword_id, expiry))
@@ -453,8 +521,8 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                         channel_id=str(message.channel.id),
                         channel_name=getattr(message.channel, "name", None),
                         message_url=message.jump_url,
-                        dm_sent=True,
-                        pushover_sent=cache.pushover.get(entry["user_id"]) is not None,
+                        dm_sent=entry.get("dm_sent", False),
+                        pushover_sent=entry.get("pushover_sent", False),
                         silently_triggered=False,
                         stock_value=stock_value,
                     ))
@@ -471,8 +539,8 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                         channel_id=str(message.channel.id),
                         channel_name=getattr(message.channel, "name", None),
                         message_url=message.jump_url,
-                        dm_sent=True,
-                        pushover_sent=cache.pushover.get(entry["user_id"]) is not None,
+                        dm_sent=entry.get("dm_sent", False),
+                        pushover_sent=entry.get("pushover_sent", False),
                         silently_triggered=False,
                         stock_value=stock_value,
                     ))
@@ -529,6 +597,21 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                         except Exception as e:
                             logger.error(f"[WEBHOOK] Failed for {uid}: {e}")
 
+                    # ── Cooldown (after Silently/Webhook path) ──
+                    # Idempotent mit dem DM/Pushover-Cooldown oben: active_cooldowns
+                    # hat UNIQUE (user, channel, keyword), cache.set_cooldown überschreibt.
+                    # Skip wenn DM oder Pushover für diesen Match schon gefeuert haben —
+                    # dann wurde der Cooldown bereits gesetzt (spart DB-Write + Log-Noise).
+                    _cd_already = entry.get("dm_sent") or entry.get("pushover_sent")
+                    _sl_or_wh_fired = success or wh_sent
+                    _pinger = cache.pinger.get(uid)
+                    if _sl_or_wh_fired and not _cd_already and _pinger and _pinger.cooldown_minutes > 0:
+                        _expiry = current_time + timedelta(minutes=_pinger.cooldown_minutes)
+                        _cid = str(message.channel.id)
+                        cache.set_cooldown(uid, _cid, entry["keyword_id"], _expiry)
+                        asyncio.create_task(write_cooldown(uid, _cid, entry["keyword_id"], _expiry))
+                        logger.info(f"[COOLDOWN SET] {uid} | KW {entry['keyword_id']} | via Silently/Webhook")
+
                     # Collect for the aggregated admin log webhook
                     admin_log_results.append({
                         "whop_user_id": uid,
@@ -546,8 +629,8 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                         channel_id=str(message.channel.id),
                         channel_name=getattr(message.channel, "name", None),
                         message_url=message.jump_url,
-                        dm_sent=True,
-                        pushover_sent=cache.pushover.get(uid) is not None,
+                        dm_sent=entry.get("dm_sent", False),
+                        pushover_sent=entry.get("pushover_sent", False),
                         silently_triggered=True,
                         silently_success=success,
                         webhook_sent=wh_sent,

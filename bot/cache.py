@@ -6,6 +6,7 @@ on_message reads from RAM only — zero DB latency.
 
 import asyncio
 import logging
+import time
 from collections import defaultdict
 from datetime import datetime
 from typing import Optional
@@ -21,20 +22,49 @@ from config import supabase, get_async_supabase, reset_async_supabase, SUPABASE_
 
 logger = logging.getLogger(__name__)
 
+# Bot-owned row in `app_settings` used as a Realtime liveness probe.
+# `heartbeat_writer` upserts this every HEARTBEAT_INTERVAL seconds via the sync
+# DB client; the resulting UPDATE echoes back on the Realtime WS and refreshes
+# `_last_rt_event_at`. If no events (of any kind) arrive for STALENESS_THRESHOLD
+# seconds, `staleness_watchdog` forces a full reconnect. Dashboard code never
+# reads/writes this key — _load_app_settings' if/elif silently drops unknowns.
+HEARTBEAT_KEY = "_bot_rt_heartbeat"
+HEARTBEAT_INTERVAL = 60          # seconds between self-upserts
+STALENESS_CHECK_INTERVAL = 30    # seconds between staleness checks
+STALENESS_THRESHOLD = 180        # seconds without ANY RT event before reconnect
+
 
 class _RealtimeCloseDetector(logging.Handler):
-    """Listens on the 'realtime._async.client' logger for abnormal WebSocket
-    closes (code 1006) and signals the watchdog via an asyncio.Event.
+    """Listens on realtime-py's loggers for WebSocket failures and signals
+    the watchdog via an asyncio.Event.
 
-    The Supabase realtime-py library does not expose a Python-level callback
-    for these closures — it only logs them at ERROR level. This handler
-    filters those log records and schedules the Event to be set on the
-    bot's asyncio loop (logging handlers can fire from any thread).
+    The realtime-py library (supabase/realtime-py, archived 2025-08) does
+    not expose a Python-level callback for socket closures — it only logs
+    them. This handler filters ERROR records and schedules the Event to be
+    set on the bot's asyncio loop (logging handlers can fire from any
+    thread, so we use call_soon_threadsafe).
 
-    `cache_ref` is a weakref-like direct reference back to the BotCache so
-    we can skip log events that fire as a side-effect of our own intentional
-    client teardown inside _full_reconnect().
+    Why multiple substrings: realtime-py 2.x has several distinct close
+    paths (_listen exit, _keep_alive failure, heartbeat timeout, 1006
+    abnormal close) and the phrasing differs across versions. Matching
+    only "WebSocket connection closed" missed the silent _listen/_keep_alive
+    task-death case documented in realtime-py issues #30, #213 and PR #46.
+    This detector is paired with the proactive staleness_watchdog below —
+    the watchdog is the guaranteed backstop; the log-scrape is the fast path.
+
+    `cache_ref` is a direct reference back to the BotCache so we can skip
+    log events that fire as a side-effect of our own intentional client
+    teardown inside _full_reconnect().
     """
+
+    _TRIGGER_SUBSTRINGS = (
+        "websocket connection closed",
+        "connection closed",
+        "connection lost",
+        "heartbeat",
+        "abnormal",
+        "1006",
+    )
 
     def __init__(self, event: asyncio.Event, loop: asyncio.AbstractEventLoop, cache_ref):
         super().__init__(level=logging.ERROR)
@@ -44,10 +74,10 @@ class _RealtimeCloseDetector(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
-            msg = record.getMessage()
+            msg = record.getMessage().lower()
         except Exception:
             return
-        if "WebSocket connection closed" not in msg:
+        if not any(s in msg for s in self._TRIGGER_SUBSTRINGS):
             return
         # Skip if we're already in the middle of a deliberate teardown — the
         # close we're seeing is our own doing, not a new failure.
@@ -79,6 +109,11 @@ class BotCache:
         self.discord_id_by_whop: dict[str, str] = {}
         # {whop_user_id: username} — used by admin log webhook for readable user display
         self.username_by_whop: dict[str, str] = {}
+        # Whop user IDs of admins (profiles.is_admin=true). Used by the
+        # test-bot filter in handlers/message.py — the test bot
+        # (BOT_ROLE=test) only processes users in this set. The prod bot
+        # ignores the set entirely and processes everyone.
+        self.admin_ids: set[str] = set()
         # {user_id: set(keyword_text)}
         self.disabled_keywords: dict[str, set[str]] = defaultdict(set)
         # Reverse lookup for Realtime DELETE events on `autostart_disabled_keywords`.
@@ -87,6 +122,10 @@ class BotCache:
         # so that deletes can resolve back to the set entry.
         # {row_id: (user_id, keyword)}
         self._disabled_id_map: dict[str, tuple[str, str]] = {}
+        # Per-keyword Pushover disabled — keyed by keyword_id (UUID), not text
+        # {user_id: set(keyword_id)}
+        self.pushover_disabled: dict[str, set[str]] = defaultdict(set)
+        self._pushover_disabled_id_map: dict[str, tuple[str, str]] = {}
         # {user_id: {channel_id: {keyword_id: expiry_datetime}}}
         self.active_cooldowns: dict[str, dict[str, dict[str, datetime]]] = defaultdict(
             lambda: defaultdict(dict)
@@ -106,6 +145,17 @@ class BotCache:
         self._reconnect_needed: asyncio.Event = asyncio.Event()
         self._reconnecting: bool = False
         self._watchdog_task: Optional[asyncio.Task] = None
+        # Periodic cache resync — safety net for silently-dropped Realtime
+        # events. See periodic_resync() for details.
+        self._resync_task: Optional[asyncio.Task] = None
+        # Proactive staleness watchdog. Signals _reconnect_needed when no
+        # Realtime events (of any kind) have arrived for too long — catches
+        # the silent-drop case where realtime-py's _listen or _keep_alive
+        # task dies without logging a close. See staleness_watchdog() and
+        # heartbeat_writer() below.
+        self._heartbeat_task: Optional[asyncio.Task] = None
+        self._staleness_task: Optional[asyncio.Task] = None
+        self._last_rt_event_at: float = time.monotonic()
 
     # ── Initial full load ────────────────────────────────────────────────
     #
@@ -133,6 +183,7 @@ class BotCache:
             self._load_pushover(dst),
             self._load_webhooks(dst),
             self._load_disabled_keywords(dst),
+            self._load_pushover_disabled(dst),
             self._load_app_settings(dst),
         ]
         if target is None:
@@ -148,19 +199,30 @@ class BotCache:
     async def _load_profiles(self, target):
         data = (
             supabase.table("profiles")
-            .select("id, discord_user_id, username")
+            .select("id, discord_user_id, username, is_admin")
             .execute()
             .data
             or []
         )
-        target.discord_id_by_whop.clear()
-        target.username_by_whop.clear()
+        # Build fresh collections locally, then atomically rebind on target.
+        # periodic_resync() calls this on `self` while on_message is actively
+        # reading admin_ids / discord_id_by_whop — a clear()+refill sequence
+        # would briefly expose an empty collection to readers. Python attribute
+        # rebinds are GIL-atomic, so swapping the whole dict/set is safe.
+        new_discord: dict[str, str] = {}
+        new_username: dict[str, str] = {}
+        new_admins: set[str] = set()
         for row in data:
             wid = row["id"]
             if row.get("discord_user_id"):
-                target.discord_id_by_whop[wid] = row["discord_user_id"]
+                new_discord[wid] = row["discord_user_id"]
             if row.get("username"):
-                target.username_by_whop[wid] = row["username"]
+                new_username[wid] = row["username"]
+            if row.get("is_admin"):
+                new_admins.add(wid)
+        target.discord_id_by_whop = new_discord
+        target.username_by_whop = new_username
+        target.admin_ids = new_admins
 
     async def _load_keywords(self, target):
         data = supabase.table("keywords").select("*").execute().data or []
@@ -196,6 +258,18 @@ class BotCache:
             target.disabled_keywords[uid].add(kw)
             if rid:
                 target._disabled_id_map[str(rid)] = (uid, kw)
+
+    async def _load_pushover_disabled(self, target):
+        data = supabase.table("pushover_disabled_keywords").select("*").execute().data or []
+        target.pushover_disabled.clear()
+        target._pushover_disabled_id_map.clear()
+        for row in data:
+            uid = row["user_id"]
+            kid = row["keyword_id"]
+            rid = row.get("id")
+            target.pushover_disabled[uid].add(kid)
+            if rid:
+                target._pushover_disabled_id_map[str(rid)] = (uid, kid)
 
     async def _load_cooldowns(self, target):
         data = supabase.table("active_cooldowns").select("*").execute().data or []
@@ -242,20 +316,32 @@ class BotCache:
         """
         async_sb = await get_async_supabase()
 
-        # Attach the 1006 detector to the realtime library logger exactly once.
-        # Doing it here (rather than __init__) means we have access to the
-        # running asyncio loop, which the log handler needs to schedule
-        # event.set() via call_soon_threadsafe.
-        rt_logger = logging.getLogger("realtime._async.client")
-        if not any(isinstance(h, _RealtimeCloseDetector) for h in rt_logger.handlers):
-            try:
-                loop = asyncio.get_running_loop()
+        # Attach the close-detector to realtime-py's loggers exactly once per
+        # logger. Doing this inside subscribe() (rather than __init__) means we
+        # have access to the running asyncio loop, which the log handler needs
+        # to schedule event.set() via call_soon_threadsafe. Multiple loggers
+        # are covered because different close paths in realtime-py 2.x log
+        # under different modules (client / channel / socket). The detector
+        # filters on level=ERROR so it stays quiet when main.py silences these
+        # loggers to WARNING — actual close events are logged at ERROR.
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+            logger.warning("No running loop when attaching close-detector")
+        if loop is not None:
+            for rt_logger_name in (
+                "realtime._async.client",
+                "realtime._async.channel",
+                "realtime._async.socket",
+            ):
+                rt_logger = logging.getLogger(rt_logger_name)
+                if any(isinstance(h, _RealtimeCloseDetector) for h in rt_logger.handlers):
+                    continue
                 rt_logger.addHandler(
                     _RealtimeCloseDetector(self._reconnect_needed, loop, self)
                 )
-                logger.info("Realtime close-detector attached to library logger")
-            except RuntimeError:
-                logger.warning("No running loop when attaching close-detector")
+                logger.info(f"Realtime close-detector attached to {rt_logger_name}")
 
         # Reset the channel list — _full_reconnect may have cleared it, but
         # a fresh startup also expects a clean list.
@@ -277,6 +363,7 @@ class BotCache:
             ("pushover_settings", self._on_pushover_change),
             ("webhook_settings", self._on_webhooks_change),
             ("autostart_disabled_keywords", self._on_disabled_kw_change),
+            ("pushover_disabled_keywords", self._on_pushover_disabled_change),
             ("app_settings", self._on_app_settings_change),
         ]
         for table, callback in tables:
@@ -288,46 +375,119 @@ class BotCache:
                 callback=callback,
             )
 
-            # Capture `table` in closure for the status callback
+            # Capture `table` in closure for the status callback.
+            # CHANNEL_ERROR / TIMED_OUT / CLOSED are the library's own way of
+            # reporting that a subscription is broken. Previously we only
+            # logged them; now we also wake the watchdog, because a broken
+            # channel that never recovers is exactly how the "silent stall"
+            # symptom manifests. The _reconnecting guard prevents retry
+            # storms when these fire during a deliberate teardown.
             def _make_status_cb(tname: str):
                 def _on_status(status, err):
                     if status == RealtimeSubscribeStates.SUBSCRIBED:
                         logger.info(f"[RT] {tname}: SUBSCRIBED (receiving events)")
                     elif status == RealtimeSubscribeStates.CHANNEL_ERROR:
                         logger.error(f"[RT] {tname}: CHANNEL_ERROR — {err}")
+                        if not self._reconnecting:
+                            self._reconnect_needed.set()
                     elif status == RealtimeSubscribeStates.TIMED_OUT:
                         logger.error(f"[RT] {tname}: TIMED_OUT — server did not respond")
+                        if not self._reconnecting:
+                            self._reconnect_needed.set()
                     elif status == RealtimeSubscribeStates.CLOSED:
                         logger.warning(f"[RT] {tname}: CLOSED — channel disconnected")
+                        if not self._reconnecting:
+                            self._reconnect_needed.set()
                 return _on_status
 
             await channel.subscribe(_make_status_cb(table))
             self._realtime_channels.append(channel)
-            logger.info(f"Subscribed to Realtime: {table}")
+            # Intentionally no log here — the status callback
+            # `_make_status_cb` logs "[RT] {table}: SUBSCRIBED" once
+            # the server confirms the subscription, which is more
+            # informative than the "we asked" notice here. Having
+            # both produces 18 lines at startup instead of 9.
 
     # ── Watchdog + atomic reconnect ──────────────────────────────────────
 
     async def watchdog(self):
-        """Wait for a 1006 signal, then force a full Realtime reconnect.
+        """Wait for a reconnect signal from any source, then force a full
+        Realtime reconnect. Signals can come from:
+          * _RealtimeCloseDetector (library-logged WS failure)
+          * staleness_watchdog (no RT events flowed for too long)
+          * channel status callback (CHANNEL_ERROR / TIMED_OUT / CLOSED)
 
-        The detector in _RealtimeCloseDetector sets _reconnect_needed when
-        the library logs a WebSocket abnormal close. We react by tearing
-        down the entire AsyncClient and rebuilding it — the only thing that
-        reliably fixes the silent-event-loss state the library gets into
-        after 1006. Discord message handling is not affected.
+        All paths converge here so there is exactly one teardown pipeline.
+        Discord message handling is not affected — the atomic swap in
+        _reload_atomic() keeps on_message readers consistent.
         """
         logger.info("[Watchdog] Realtime watchdog started")
         while True:
             await self._reconnect_needed.wait()
             self._reconnect_needed.clear()
-            logger.error("[Watchdog] 1006 detected — forcing full Realtime reconnect")
+            logger.error("[Watchdog] reconnect signal — forcing full Realtime reconnect")
             try:
                 await self._full_reconnect()
+                # Fresh snapshot is live — reset the liveness clock so the
+                # staleness watchdog doesn't fire again immediately while
+                # no real events have had a chance to arrive yet.
+                self._last_rt_event_at = time.monotonic()
                 logger.info("[Watchdog] Realtime reconnect successful")
             except Exception as e:
                 logger.error(f"[Watchdog] Reconnect failed: {e}", exc_info=True)
                 # Back off briefly, then retry via the same path.
                 await asyncio.sleep(5)
+                self._reconnect_needed.set()
+
+    async def heartbeat_writer(self):
+        """Self-upsert a bot-owned row into app_settings at HEARTBEAT_INTERVAL.
+
+        The point is not the value — it's that each upsert triggers a
+        postgres_changes UPDATE that echoes back through Realtime to the
+        bot, proving the WS is not silently dead. No echo → staleness
+        watchdog fires. Uses asyncio.to_thread because the Supabase sync
+        client is blocking. Write failures are non-fatal because the
+        staleness watchdog itself is the source of truth.
+        """
+        logger.info(f"[Heartbeat] writer started (interval={HEARTBEAT_INTERVAL}s)")
+        while True:
+            try:
+                now_iso = datetime.now(pytz.UTC).isoformat()
+                await asyncio.to_thread(
+                    lambda: supabase.table("app_settings")
+                    .upsert({"key": HEARTBEAT_KEY, "value": now_iso})
+                    .execute()
+                )
+            except Exception as e:
+                logger.warning(f"[Heartbeat] upsert failed: {e}")
+            await asyncio.sleep(HEARTBEAT_INTERVAL)
+
+    async def staleness_watchdog(self):
+        """Force a reconnect if no Realtime events have arrived for too long.
+
+        Proactive counterpart to the log-scraping detector. Catches the
+        silent-drop failure mode documented in realtime-py issues #30 /
+        #213 / PR #46, where _listen() or _keep_alive() exit quietly
+        without emitting the log line the detector keys on.
+
+        Refreshed by every _on_*_change handler via _touch(). During a
+        deliberate reconnect we skip the check — the reconnect itself
+        re-arms _last_rt_event_at in the watchdog loop.
+        """
+        logger.info(
+            f"[Staleness] watchdog started "
+            f"(threshold={STALENESS_THRESHOLD}s, check every {STALENESS_CHECK_INTERVAL}s)"
+        )
+        while True:
+            await asyncio.sleep(STALENESS_CHECK_INTERVAL)
+            if self._reconnecting:
+                continue
+            elapsed = time.monotonic() - self._last_rt_event_at
+            if elapsed > STALENESS_THRESHOLD:
+                logger.error(
+                    f"[Staleness] no Realtime events for {elapsed:.0f}s "
+                    f"(>{STALENESS_THRESHOLD}s) — forcing reconnect"
+                )
                 self._reconnect_needed.set()
 
     async def _full_reconnect(self):
@@ -375,8 +535,11 @@ class BotCache:
         tmp.webhooks = {}
         tmp.discord_id_by_whop = {}
         tmp.username_by_whop = {}
+        tmp.admin_ids = set()
         tmp.disabled_keywords = defaultdict(set)
         tmp._disabled_id_map = {}
+        tmp.pushover_disabled = defaultdict(set)
+        tmp._pushover_disabled_id_map = {}
         tmp.app = AppSettings()
         # Active cooldowns are owned by this process, not the DB — we keep
         # the live reference and just rebind it on tmp for loader safety.
@@ -396,10 +559,52 @@ class BotCache:
             self.webhooks = tmp.webhooks
             self.discord_id_by_whop = tmp.discord_id_by_whop
             self.username_by_whop = tmp.username_by_whop
+            self.admin_ids = tmp.admin_ids
             self.disabled_keywords = tmp.disabled_keywords
             self._disabled_id_map = tmp._disabled_id_map
+            self.pushover_disabled = tmp.pushover_disabled
+            self._pushover_disabled_id_map = tmp._pushover_disabled_id_map
             self.app = tmp.app
         logger.info("[Watchdog] Cache atomically swapped to fresh state")
+
+    # ── Periodic resync ──────────────────────────────────────────────────
+    #
+    # Supabase Realtime occasionally drops UPDATE events silently — a single
+    # lost event on e.g. pushover_settings is enough to leave the cache stuck
+    # with an old priority until the bot restarts or the 1006 watchdog fires.
+    # This task runs in the background and re-reads the small per-user
+    # settings tables from the DB on a fixed interval, so any drift self-heals
+    # within `interval_seconds`. The hot path (on_message) still reads from
+    # the in-memory cache — this task only overwrites the same dicts in place.
+    async def periodic_resync(self, interval_seconds: int = 60):
+        """Safety net against silent Realtime drops: reload small settings
+        tables from the DB every `interval_seconds`.
+
+        Only reloads per-user settings that are safe to overwrite in place.
+        Does NOT touch `keywords` (large, handled by realtime + reconnect),
+        `active_cooldowns` (process-owned), or the disabled_keywords maps
+        (which rely on id-reverse lookups that reloading would invalidate).
+        """
+        logger.info(f"[Resync] Periodic resync started (interval={interval_seconds}s)")
+        while True:
+            try:
+                await asyncio.sleep(interval_seconds)
+                async with self._lock:
+                    await asyncio.gather(
+                        self._load_profiles(self),
+                        self._load_pinger(self),
+                        self._load_silently(self),
+                        self._load_pushover(self),
+                        self._load_webhooks(self),
+                        self._load_app_settings(self),
+                    )
+                logger.debug("[Resync] Periodic settings reload complete")
+            except asyncio.CancelledError:
+                logger.info("[Resync] Periodic resync cancelled")
+                raise
+            except Exception as e:
+                logger.error(f"[Resync] Periodic reload failed: {e}", exc_info=True)
+                # Don't spin on errors — wait the full interval before retrying.
 
     # ── Payload helper ───────────────────────────────────────────────────
     # Supabase Realtime v2 delivers payloads as:
@@ -419,12 +624,21 @@ class BotCache:
         old_record = data.get("old_record") or {}
         return etype, record, old_record
 
+    def _touch(self) -> None:
+        """Mark that a Realtime event just arrived. Read by staleness_watchdog
+        to decide whether the WS is still delivering events. Called at the
+        top of every _on_*_change handler.
+        """
+        self._last_rt_event_at = time.monotonic()
+
     def _on_profile_change(self, payload):
         try:
+            self._touch()
             etype, record, old = self._extract(payload)
             if etype == "DELETE" and old.get("id"):
                 self.discord_id_by_whop.pop(old["id"], None)
                 self.username_by_whop.pop(old["id"], None)
+                self.admin_ids.discard(old["id"])
                 logger.info(f"[RT] Profile deleted: {old['id']}")
             elif record and "id" in record:
                 whop_id = record["id"]
@@ -440,11 +654,24 @@ class BotCache:
                     self.username_by_whop[whop_id] = username
                 else:
                     self.username_by_whop.pop(whop_id, None)
+                # Track is_admin for the test/prod bot split. A missing key
+                # in the UPDATE payload is treated as "not admin" because
+                # Supabase Realtime always sends the full row on UPDATE when
+                # REPLICA IDENTITY FULL is set.
+                if record.get("is_admin"):
+                    if whop_id not in self.admin_ids:
+                        self.admin_ids.add(whop_id)
+                        logger.info(f"[RT] Admin added: {whop_id}")
+                else:
+                    if whop_id in self.admin_ids:
+                        self.admin_ids.discard(whop_id)
+                        logger.info(f"[RT] Admin removed: {whop_id}")
         except Exception as e:
             logger.error(f"[RT] Error in _on_profile_change: {e}")
 
     def _on_keywords_change(self, payload):
         try:
+            self._touch()
             etype, record, old = self._extract(payload)
             if etype == "DELETE" and old.get("id"):
                 for uid in list(self.keywords):
@@ -463,6 +690,7 @@ class BotCache:
 
     def _on_pinger_change(self, payload):
         try:
+            self._touch()
             etype, record, old = self._extract(payload)
             if etype == "DELETE" and old.get("user_id"):
                 self.pinger.pop(old["user_id"], None)
@@ -475,6 +703,7 @@ class BotCache:
 
     def _on_silently_change(self, payload):
         try:
+            self._touch()
             etype, record, old = self._extract(payload)
             if etype == "DELETE" and old.get("user_id"):
                 self.silently.pop(old["user_id"], None)
@@ -487,6 +716,7 @@ class BotCache:
 
     def _on_pushover_change(self, payload):
         try:
+            self._touch()
             etype, record, old = self._extract(payload)
             if etype == "DELETE" and old.get("user_id"):
                 self.pushover.pop(old["user_id"], None)
@@ -499,6 +729,7 @@ class BotCache:
 
     def _on_webhooks_change(self, payload):
         try:
+            self._touch()
             etype, record, old = self._extract(payload)
             if etype == "DELETE" and old.get("user_id"):
                 self.webhooks.pop(old["user_id"], None)
@@ -511,6 +742,7 @@ class BotCache:
 
     def _on_disabled_kw_change(self, payload):
         try:
+            self._touch()
             etype, record, old = self._extract(payload)
             # Supabase Realtime DELETE payloads only contain the PK (id), not
             # user_id/keyword — even with REPLICA IDENTITY FULL, the Realtime
@@ -546,11 +778,53 @@ class BotCache:
         except Exception as e:
             logger.error(f"[RT] Error in _on_disabled_kw_change: {e}")
 
+    def _on_pushover_disabled_change(self, payload):
+        try:
+            self._touch()
+            etype, record, old = self._extract(payload)
+            if etype == "DELETE":
+                old_id = str(old.get("id", "")) if old else ""
+                if not old_id:
+                    logger.warning("[RT] Pushover disabled keyword DELETE without id in payload — cannot resolve")
+                    return
+                mapped = self._pushover_disabled_id_map.pop(old_id, None)
+                if mapped is None:
+                    logger.warning(
+                        f"[RT] Pushover disabled keyword DELETE id={old_id} not found in reverse map — "
+                        f"cache may be stale, triggering reload"
+                    )
+                    asyncio.create_task(self._load_pushover_disabled(self))
+                    return
+                uid, kid = mapped
+                self.pushover_disabled[uid].discard(kid)
+                logger.info(f"[RT] Pushover disabled keyword removed: {kid} for {uid}")
+            elif record:
+                uid = record.get("user_id", "")
+                kid = record.get("keyword_id", "")
+                rid = record.get("id")
+                if uid and kid:
+                    self.pushover_disabled[uid].add(kid)
+                    if rid:
+                        self._pushover_disabled_id_map[str(rid)] = (uid, kid)
+                    logger.info(f"[RT] Pushover disabled keyword added: {kid} for {uid}")
+        except Exception as e:
+            logger.error(f"[RT] Error in _on_pushover_disabled_change: {e}")
+
     def _on_app_settings_change(self, payload):
         try:
+            self._touch()
             etype, record, old = self._extract(payload)
             if record:
                 key, val = record.get("key", ""), record.get("value", "") or ""
+                # Bot-owned liveness probe: the echo is the whole point (it
+                # refreshes _last_rt_event_at via _touch above). One terse
+                # log per echo proves end-to-end that Bot → DB → Supabase
+                # Realtime → WS → Bot is alive right now. Skip the generic
+                # "App setting updated: ..." line below — that's misleading
+                # since there is no actual state change.
+                if key == HEARTBEAT_KEY:
+                    logger.info("[Heartbeat] echo received (WS alive)")
+                    return
                 if key == "silently_api_key":
                     self.app.silently_api_key = val
                 elif key == "pushover_app_key":

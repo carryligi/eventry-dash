@@ -8,7 +8,7 @@ echo ========================================
 echo.
 
 if not exist "venv" (
-    echo [1/3] Creating virtual environment...
+    echo [1/5] Creating virtual environment...
     python -m venv venv
     if errorlevel 1 (
         echo [ERROR] Failed to create venv. Is Python installed and on PATH?
@@ -16,16 +16,35 @@ if not exist "venv" (
         exit /b 1
     )
 ) else (
-    echo [1/3] Virtual environment already exists, skipping.
+    echo [1/5] Virtual environment already exists, skipping.
 )
 
 echo.
-echo [2/3] Activating venv and upgrading pip...
+echo [2/5] Activating venv and upgrading pip...
 call venv\Scripts\activate.bat
 python -m pip install --upgrade pip --disable-pip-version-check
 
 echo.
-echo [3/3] Installing/upgrading dependencies (this can take 1-3 minutes)...
+echo [3/5] First-run credential setup (interactive if .env has placeholders)...
+rem Runs BEFORE updater.py so the user can fill in secrets before the
+rem updater tries to use BOT_UPDATE_BRANCH from .env. Stdlib-only, no
+rem dependencies needed yet. Aborts start.bat if the user cancels.
+python first_run.py
+if errorlevel 1 (
+    echo [ERROR] First-run setup aborted or failed.
+    pause
+    exit /b 1
+)
+
+echo.
+echo [4/5] Checking for bot updates from GitHub...
+rem Runs BEFORE pip install so any new requirements.txt is picked up by
+rem the dependency step below. Soft-fails on network errors — bot will
+rem still boot with the current local version.
+python updater.py
+
+echo.
+echo [5/5] Installing/upgrading dependencies (this can take 1-3 minutes)...
 rem --upgrade ensures pinned minimum versions in requirements.txt actually
 rem pull newer releases (important for realtime-py heartbeat bug fixes).
 pip install -r requirements.txt --upgrade --disable-pip-version-check

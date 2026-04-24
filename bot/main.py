@@ -13,11 +13,50 @@ from config import DISCORD_BOT_TOKEN, GUILD_ID
 from cache import BotCache
 from handlers.message import handle_message
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+
+class CleanFormatter(logging.Formatter):
+    """Terse formatter: ``HH:MM:SS  message`` for INFO, with a level
+    prefix for WARNING and above. No logger name, no full date — the
+    goal is one glanceable line per event, not structured parsing.
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        ts = self.formatTime(record, "%H:%M:%S")
+        msg = record.getMessage()
+        if record.exc_info:
+            msg = f"{msg}\n{self.formatException(record.exc_info)}"
+        if record.levelno >= logging.WARNING:
+            return f"{ts}  [{record.levelname}] {msg}"
+        return f"{ts}  {msg}"
+
+
+_handler = logging.StreamHandler()
+_handler.setFormatter(CleanFormatter())
+logging.basicConfig(level=logging.INFO, handlers=[_handler], force=True)
+
+# Silence noisy third-party libraries. Their INFO output otherwise
+# spams the console with Discord gateway events, httpx HTTP request
+# lines, and — most importantly — full Realtime WebSocket payloads
+# which include the Supabase service_role JWT in cleartext. Keeping
+# them at WARNING means we still see genuine problems without the
+# per-message noise and without accidentally leaking the token.
+for _noisy in (
+    "httpx",
+    "httpcore",
+    "discord",
+    "discord.client",
+    "discord.gateway",
+    "discord.http",
+    "discord.state",
+    "realtime",
+    "realtime._async.client",
+    "realtime._async.channel",
+    "websockets",
+    "websockets.client",
+    "urllib3",
+):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 # Discord client setup
@@ -48,11 +87,24 @@ async def on_ready():
     except Exception as e:
         logger.error(f"Realtime subscribe failed on startup: {e}", exc_info=True)
 
-    # Start the Realtime watchdog. on_ready can fire multiple times when
-    # discord.py reconnects, so only start a new task if the previous one
-    # is absent or already finished.
+    # Start Realtime supervisor tasks. on_ready can fire multiple times when
+    # discord.py reconnects, so each task is only (re)spawned when the
+    # previous one is absent or has already finished.
+    # - watchdog: reacts to _reconnect_needed from any source
+    # - periodic_resync: every 60s re-reads per-user settings from DB so a
+    #   silently-dropped UPDATE doesn't leave priority/keys/webhooks stale
+    # - heartbeat_writer: self-upserts to app_settings so we can detect a
+    #   dead Realtime WS even when it doesn't log a close
+    # - staleness_watchdog: forces reconnect if no RT events arrive for too
+    #   long — the proactive counterpart to the log-scraping detector
     if cache._watchdog_task is None or cache._watchdog_task.done():
         cache._watchdog_task = asyncio.create_task(cache.watchdog())
+    if cache._resync_task is None or cache._resync_task.done():
+        cache._resync_task = asyncio.create_task(cache.periodic_resync(60))
+    if cache._heartbeat_task is None or cache._heartbeat_task.done():
+        cache._heartbeat_task = asyncio.create_task(cache.heartbeat_writer())
+    if cache._staleness_task is None or cache._staleness_task.done():
+        cache._staleness_task = asyncio.create_task(cache.staleness_watchdog())
 
     bot_start_time = discord.utils.utcnow()
     logger.info(f"Bot ready: {bot.user} | Guild: {GUILD_ID}")

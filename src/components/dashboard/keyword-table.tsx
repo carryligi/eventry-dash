@@ -35,6 +35,7 @@ import {
 } from 'lucide-react'
 import { deleteKeywords } from '@/lib/actions/keywords'
 import { toggleKeywordAutostart } from '@/lib/actions/silently'
+import { toggleKeywordPushover } from '@/lib/actions/pushover'
 import { useAction } from '@/hooks/use-action'
 import { KeywordDialog } from './keyword-dialog'
 import { useDiscordChannels } from './use-discord-channels'
@@ -120,9 +121,11 @@ interface KeywordTableProps {
    * whose per-keyword min_stock is NULL (inheriting the global value).
    */
   globalMinStock?: number
+  pushoverDisabledKeywords: string[]
+  pushoverGlobalEnabled: boolean
 }
 
-export function KeywordTable({ keywords, disabledKeywords, globalMinStock }: KeywordTableProps) {
+export function KeywordTable({ keywords, disabledKeywords, globalMinStock, pushoverDisabledKeywords, pushoverGlobalEnabled }: KeywordTableProps) {
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<SortField>('created_at')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -180,9 +183,37 @@ export function KeywordTable({ keywords, disabledKeywords, globalMinStock }: Key
     })
   }
 
+  const [isPushoverPending, startPushoverTransition] = useTransition()
+  const [optimisticPushoverDisabled, setOptimisticPushoverDisabled] = useOptimistic(
+    pushoverDisabledKeywords,
+    (current: string[], { keywordId, enabled }: { keywordId: string; enabled: boolean }) => {
+      if (enabled) {
+        return current.filter((k) => k !== keywordId)
+      }
+      return [...current, keywordId]
+    },
+  )
+
+  const { execute: executePushover } = useAction(
+    (input: { keywordId: string; enabled: boolean }) =>
+      toggleKeywordPushover(input.keywordId, input.enabled),
+  )
+
+  const handlePushoverToggle = (keywordId: string, enabled: boolean) => {
+    startPushoverTransition(() => {
+      setOptimisticPushoverDisabled({ keywordId, enabled })
+      executePushover({ keywordId, enabled })
+    })
+  }
+
   const disabledSet = useMemo(
     () => new Set(optimisticDisabled.map((k) => k.toLowerCase())),
     [optimisticDisabled],
+  )
+
+  const pushoverDisabledSet = useMemo(
+    () => new Set(optimisticPushoverDisabled),
+    [optimisticPushoverDisabled],
   )
 
   const filtered = useMemo(() => {
@@ -337,6 +368,9 @@ export function KeywordTable({ keywords, disabledKeywords, globalMinStock }: Key
                 <span className="text-ev-text-secondary">Autostart</span>
               </TableHead>
               <TableHead>
+                <span className="text-ev-text-secondary">Pushover</span>
+              </TableHead>
+              <TableHead>
                 <button
                   onClick={() => toggleSort('created_at')}
                   className="flex items-center gap-1 text-ev-text-secondary transition-colors"
@@ -354,7 +388,7 @@ export function KeywordTable({ keywords, disabledKeywords, globalMinStock }: Key
             {filtered.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell
-                  colSpan={8}
+                  colSpan={9}
                   className="h-24 text-center text-ev-text-tertiary"
                 >
                   {search
@@ -465,6 +499,32 @@ export function KeywordTable({ keywords, disabledKeywords, globalMinStock }: Key
                           aria-label={`Autostart for ${kw.keyword}`}
                         />
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const isPushoverOff = pushoverDisabledSet.has(kw.id)
+                        return (
+                          <div
+                            className="flex items-center gap-2"
+                            title={!pushoverGlobalEnabled ? 'Pushover global deaktiviert' : undefined}
+                          >
+                            <span
+                              className={`inline-block size-1.5 rounded-full flex-shrink-0 ${
+                                !pushoverGlobalEnabled || isPushoverOff ? 'bg-ev-text-tertiary' : 'bg-ev-success'
+                              }`}
+                            />
+                            <Switch
+                              checked={pushoverGlobalEnabled && !isPushoverOff}
+                              onCheckedChange={(checked) =>
+                                handlePushoverToggle(kw.id, checked)
+                              }
+                              disabled={isPushoverPending || !pushoverGlobalEnabled}
+                              size="sm"
+                              aria-label={`Pushover for ${kw.keyword}`}
+                            />
+                          </div>
+                        )
+                      })()}
                     </TableCell>
                     <TableCell>
                       <span className="text-xs tabular-nums text-ev-text-tertiary">

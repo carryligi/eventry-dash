@@ -66,6 +66,39 @@ export async function removePushoverKey(): Promise<ActionResult> {
   }
 }
 
+export async function toggleKeywordPushover(
+  keywordId: string,
+  enabled: boolean,
+): Promise<ActionResult> {
+  try {
+    const profile = await getCurrentUser()
+    const supabase = await createServerClient()
+
+    if (enabled) {
+      const { error } = await supabase
+        .from('pushover_disabled_keywords')
+        .delete()
+        .eq('user_id', profile.id)
+        .eq('keyword_id', keywordId)
+      if (error) return { success: false, error: error.message }
+    } else {
+      const { error } = await supabase
+        .from('pushover_disabled_keywords')
+        .upsert(
+          { user_id: profile.id, keyword_id: keywordId },
+          { onConflict: 'user_id,keyword_id' },
+        )
+      if (error) return { success: false, error: error.message }
+    }
+
+    revalidatePath('/dashboard/keywords')
+    revalidateNotifications()
+    return { success: true, data: undefined }
+  } catch (err) {
+    return { success: false, error: handleActionError(err, 'Failed to toggle keyword Pushover') }
+  }
+}
+
 export async function updatePriority(priority: number): Promise<ActionResult> {
   try {
     const profile = await getCurrentUser()
