@@ -23,11 +23,13 @@ Design goals:
 
 from __future__ import annotations
 
+import shutil
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ENV_PATH = HERE / ".env"
+ENV_EXAMPLE_PATH = HERE / ".env.example"
 
 # Secrets that must be filled in before the bot can start. Keyed by
 # env-var name; value is the human-readable label shown in the prompt.
@@ -129,8 +131,11 @@ def print_banner() -> None:
 
 def main() -> int:
     if not ENV_PATH.exists():
-        print("[first_run] .env not found, skipping")
-        return 0
+        if not ENV_EXAMPLE_PATH.exists():
+            print("[first_run] neither .env nor .env.example found — cannot bootstrap")
+            return 1
+        shutil.copyfile(ENV_EXAMPLE_PATH, ENV_PATH)
+        print("[first_run] created .env from .env.example")
 
     env = read_env_values(ENV_PATH)
 

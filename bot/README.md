@@ -4,20 +4,20 @@ Keyword monitoring bot that reads all configuration from Supabase (via the Event
 
 ## Setup
 
+On Windows, just double-click `start.bat`. On first launch it creates the venv,
+copies `.env.example` → `.env` if needed, and prompts you for the Discord bot token
+and the Supabase service-role key. It writes them back into `.env` and starts the bot.
+
+Manual setup (Linux / dev):
+
 1. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
 
-2. Copy `.env.example` to `.env` and fill in:
-   ```
-   DISCORD_BOT_TOKEN=your_bot_token
-   SUPABASE_URL=https://ewsvttrxcqxgifiajvkt.supabase.co
-   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-   ```
-
-3. Run:
+2. Run:
    ```bash
+   python first_run.py   # prompts for secrets, writes them into .env
    python main.py
    ```
 
