@@ -51,6 +51,3 @@ next-env.d.ts
 # remotion
 /remotion/out/
 /remotion/.cache/
-
-# bot deployment artifact (built by zipping bot/ — not source)
-/eventry-bot.zip
