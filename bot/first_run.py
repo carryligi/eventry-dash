@@ -129,8 +129,13 @@ def print_banner() -> None:
 
 def main() -> int:
     if not ENV_PATH.exists():
-        print("[first_run] .env not found, skipping")
-        return 0
+        example = HERE / ".env.example"
+        if example.exists():
+            ENV_PATH.write_text(example.read_text(encoding="utf-8"), encoding="utf-8")
+            print("[first_run] created .env from .env.example")
+        else:
+            print("[first_run] .env not found, skipping")
+            return 0
 
     env = read_env_values(ENV_PATH)
 
