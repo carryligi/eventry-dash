@@ -126,10 +126,10 @@ class BotCache:
         # {user_id: set(keyword_id)}
         self.pushover_disabled: dict[str, set[str]] = defaultdict(set)
         self._pushover_disabled_id_map: dict[str, tuple[str, str]] = {}
-        # {user_id: {channel_id: {keyword_id: expiry_datetime}}}
-        self.active_cooldowns: dict[str, dict[str, dict[str, datetime]]] = defaultdict(
-            lambda: defaultdict(dict)
-        )
+        # {user_id: {product_id: expiry_datetime}}
+        # product_id = volle Quicktask-URL aus dem Embed.
+        # Cooldown ist channel-übergreifend pro (user, product).
+        self.active_cooldowns: dict[str, dict[str, datetime]] = defaultdict(dict)
         # Global app settings
         self.app: AppSettings = AppSettings()
 
@@ -279,9 +279,8 @@ class BotCache:
             expiry = datetime.fromisoformat(row["expires_at"])
             if expiry > now:
                 uid = row["user_id"]
-                cid = row["channel_id"]
-                kid = row["keyword_id"]
-                target.active_cooldowns[uid][cid][kid] = expiry
+                pid = row["product_id"]
+                target.active_cooldowns[uid][pid] = expiry
 
     async def _load_app_settings(self, target):
         data = supabase.table("app_settings").select("key, value").execute().data or []
@@ -843,39 +842,31 @@ class BotCache:
 
     # ── Cooldown helpers ─────────────────────────────────────────────────
 
-    def is_on_cooldown(self, user_id: str, channel_id: str, keyword_id: str) -> bool:
-        expiry = self.active_cooldowns.get(user_id, {}).get(channel_id, {}).get(keyword_id)
+    def is_on_cooldown(self, user_id: str, product_id: str) -> bool:
+        expiry = self.active_cooldowns.get(user_id, {}).get(product_id)
         if expiry is None:
             return False
         if datetime.now(pytz.UTC) >= expiry:
             # Expired — clean up
-            del self.active_cooldowns[user_id][channel_id][keyword_id]
-            if not self.active_cooldowns[user_id][channel_id]:
-                del self.active_cooldowns[user_id][channel_id]
+            del self.active_cooldowns[user_id][product_id]
             if not self.active_cooldowns[user_id]:
                 del self.active_cooldowns[user_id]
             return False
         return True
 
-    def set_cooldown(self, user_id: str, channel_id: str, keyword_id: str, expiry: datetime):
-        self.active_cooldowns[user_id][channel_id][keyword_id] = expiry
+    def set_cooldown(self, user_id: str, product_id: str, expiry: datetime):
+        self.active_cooldowns[user_id][product_id] = expiry
 
     def cleanup_expired(self):
         now = datetime.now(pytz.UTC)
         empty_users = []
         for uid in list(self.active_cooldowns):
-            empty_channels = []
-            for cid in list(self.active_cooldowns[uid]):
-                expired = [
-                    kid for kid, exp in self.active_cooldowns[uid][cid].items()
-                    if now >= exp
-                ]
-                for kid in expired:
-                    del self.active_cooldowns[uid][cid][kid]
-                if not self.active_cooldowns[uid][cid]:
-                    empty_channels.append(cid)
-            for cid in empty_channels:
-                del self.active_cooldowns[uid][cid]
+            expired = [
+                pid for pid, exp in self.active_cooldowns[uid].items()
+                if now >= exp
+            ]
+            for pid in expired:
+                del self.active_cooldowns[uid][pid]
             if not self.active_cooldowns[uid]:
                 empty_users.append(uid)
         for uid in empty_users:

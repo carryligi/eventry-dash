@@ -46,17 +46,21 @@ async def write_notification_log(
         logger.error(f"Failed to write notification_log: {e}")
 
 
-async def write_cooldown(user_id: str, channel_id: str, keyword_id: str, expires_at: datetime):
-    """Upsert an active cooldown."""
+async def write_cooldown(user_id: str, product_id: str, expires_at: datetime):
+    """Upsert an active cooldown.
+
+    product_id is the full Quicktask URL (e.g. https://qt.silently.gg/?...).
+    Cooldown ist channel-übergreifend pro (user, product) — wenn dasselbe
+    Produkt in mehreren Channels gepostet wird, blockt der Cooldown alle.
+    """
     try:
         supabase.table("active_cooldowns").upsert(
             {
                 "user_id": user_id,
-                "channel_id": channel_id,
-                "keyword_id": keyword_id,
+                "product_id": product_id,
                 "expires_at": expires_at.isoformat(),
             },
-            on_conflict="user_id,channel_id,keyword_id",
+            on_conflict="user_id,product_id",
         ).execute()
     except Exception as e:
         logger.error(f"Failed to write cooldown: {e}")
