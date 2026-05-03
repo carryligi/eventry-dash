@@ -104,6 +104,21 @@ export type Database = {
           },
         ]
       }
+      bot_realtime_heartbeat: {
+        Row: {
+          id: number
+          last_seen: string
+        }
+        Insert: {
+          id: number
+          last_seen?: string
+        }
+        Update: {
+          id?: number
+          last_seen?: string
+        }
+        Relationships: []
+      }
       keywords: {
         Row: {
           category_ids: string[] | null

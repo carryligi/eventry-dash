@@ -22,16 +22,20 @@ from config import supabase, get_async_supabase, reset_async_supabase, SUPABASE_
 
 logger = logging.getLogger(__name__)
 
-# Bot-owned row in `app_settings` used as a Realtime liveness probe.
-# `heartbeat_writer` upserts this every HEARTBEAT_INTERVAL seconds via the sync
-# DB client; the resulting UPDATE echoes back on the Realtime WS and refreshes
-# `_last_rt_event_at`. If no events (of any kind) arrive for STALENESS_THRESHOLD
-# seconds, `staleness_watchdog` forces a full reconnect. Dashboard code never
-# reads/writes this key — _load_app_settings' if/elif silently drops unknowns.
-HEARTBEAT_KEY = "_bot_rt_heartbeat"
-HEARTBEAT_INTERVAL = 60          # seconds between self-upserts
+# Bot-owned row in dedicated table `bot_realtime_heartbeat` used as a
+# Realtime liveness probe. `heartbeat_writer` upserts row id=1 every
+# HEARTBEAT_INTERVAL seconds via the sync DB client; the resulting UPDATE
+# echoes back on the Realtime WS and refreshes `_last_rt_event_at`. If no
+# events (of any kind) arrive for STALENESS_THRESHOLD seconds,
+# `staleness_watchdog` forces a full reconnect. Lives in its own table so
+# UPSERT churn stays out of `app_settings` — the previous implementation
+# triggered ~1k+ HOT updates per day on a config table, inflating WAL
+# volume processed by Supabase Realtime.
+HEARTBEAT_TABLE = "bot_realtime_heartbeat"
+HEARTBEAT_ROW_ID = 1
+HEARTBEAT_INTERVAL = 120         # seconds between self-upserts
 STALENESS_CHECK_INTERVAL = 30    # seconds between staleness checks
-STALENESS_THRESHOLD = 180        # seconds without ANY RT event before reconnect
+STALENESS_THRESHOLD = 360        # seconds without ANY RT event before reconnect
 
 
 class _RealtimeCloseDetector(logging.Handler):
@@ -364,6 +368,7 @@ class BotCache:
             ("autostart_disabled_keywords", self._on_disabled_kw_change),
             ("pushover_disabled_keywords", self._on_pushover_disabled_change),
             ("app_settings", self._on_app_settings_change),
+            (HEARTBEAT_TABLE, self._on_heartbeat_change),
         ]
         for table, callback in tables:
             channel = async_sb.channel(f"cache_{table}")
@@ -439,7 +444,7 @@ class BotCache:
                 self._reconnect_needed.set()
 
     async def heartbeat_writer(self):
-        """Self-upsert a bot-owned row into app_settings at HEARTBEAT_INTERVAL.
+        """Self-upsert the bot-owned row into bot_realtime_heartbeat at HEARTBEAT_INTERVAL.
 
         The point is not the value — it's that each upsert triggers a
         postgres_changes UPDATE that echoes back through Realtime to the
@@ -453,8 +458,8 @@ class BotCache:
             try:
                 now_iso = datetime.now(pytz.UTC).isoformat()
                 await asyncio.to_thread(
-                    lambda: supabase.table("app_settings")
-                    .upsert({"key": HEARTBEAT_KEY, "value": now_iso})
+                    lambda: supabase.table(HEARTBEAT_TABLE)
+                    .upsert({"id": HEARTBEAT_ROW_ID, "last_seen": now_iso})
                     .execute()
                 )
             except Exception as e:
@@ -809,21 +814,23 @@ class BotCache:
         except Exception as e:
             logger.error(f"[RT] Error in _on_pushover_disabled_change: {e}")
 
+    def _on_heartbeat_change(self, payload):
+        """Bot-owned liveness probe echo. The whole point is _touch() —
+        proves end-to-end that Bot → DB → Supabase Realtime → WS → Bot
+        is alive right now. No state change to apply.
+        """
+        try:
+            self._touch()
+            logger.info("[Heartbeat] echo received (WS alive)")
+        except Exception as e:
+            logger.error(f"[RT] Error in _on_heartbeat_change: {e}")
+
     def _on_app_settings_change(self, payload):
         try:
             self._touch()
             etype, record, old = self._extract(payload)
             if record:
                 key, val = record.get("key", ""), record.get("value", "") or ""
-                # Bot-owned liveness probe: the echo is the whole point (it
-                # refreshes _last_rt_event_at via _touch above). One terse
-                # log per echo proves end-to-end that Bot → DB → Supabase
-                # Realtime → WS → Bot is alive right now. Skip the generic
-                # "App setting updated: ..." line below — that's misleading
-                # since there is no actual state change.
-                if key == HEARTBEAT_KEY:
-                    logger.info("[Heartbeat] echo received (WS alive)")
-                    return
                 if key == "silently_api_key":
                     self.app.silently_api_key = val
                 elif key == "pushover_app_key":
