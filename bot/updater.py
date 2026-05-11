@@ -26,6 +26,7 @@ import json
 import logging
 import os
 import shutil
+import ssl
 import sys
 import tempfile
 import urllib.request
@@ -88,9 +89,52 @@ logging.basicConfig(
 log = logging.getLogger("updater")
 
 
+def _build_ssl_context() -> ssl.SSLContext:
+    """
+    Build an SSL context that trusts something reasonable on Windows even
+    when Python's bundled OpenSSL has no CA bundle of its own. Order:
+      1. certifi (best — same bundle requests/urllib3 use, installed as a
+         transitive dep after first pip install).
+      2. Windows root + CA stores via ssl.enum_certificates (works on a
+         fresh Python install before any pip install has run).
+      3. Plain default context (Linux/macOS path, or last resort).
+    """
+    ctx = ssl.create_default_context()
+
+    try:
+        import certifi  # type: ignore
+        ctx.load_verify_locations(cafile=certifi.where())
+        return ctx
+    except Exception:
+        pass
+
+    if sys.platform == "win32":
+        try:
+            for store in ("ROOT", "CA"):
+                for cert_bytes, _enc, trust in ssl.enum_certificates(store):
+                    # trust is True, or an iterable of EKU OIDs; "any purpose"
+                    # = True. Server auth = 1.3.6.1.5.5.7.3.1.
+                    if trust is True or (
+                        isinstance(trust, (set, tuple, list))
+                        and "1.3.6.1.5.5.7.3.1" in trust
+                    ):
+                        try:
+                            pem = ssl.DER_cert_to_PEM_cert(cert_bytes)
+                            ctx.load_verify_locations(cadata=pem)
+                        except ssl.SSLError:
+                            continue
+        except Exception:
+            pass
+
+    return ctx
+
+
+_SSL_CTX = _build_ssl_context()
+
+
 def _http_get(url: str, timeout: int = HTTP_TIMEOUT) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout, context=_SSL_CTX) as resp:
         return resp.read()
 
 
@@ -119,6 +163,7 @@ def download_zip(dest: Path) -> bool:
         with urllib.request.urlopen(
             urllib.request.Request(ZIP_URL, headers={"User-Agent": USER_AGENT}),
             timeout=HTTP_TIMEOUT * 2,
+            context=_SSL_CTX,
         ) as resp, dest.open("wb") as f:
             shutil.copyfileobj(resp, f)
         return True
