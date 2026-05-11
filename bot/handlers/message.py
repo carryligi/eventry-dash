@@ -259,6 +259,19 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
         pushover_msg = _build_pushover_message(embed, message.jump_url)
         embed_prices = _extract_price_breaks(embed)
 
+        # Product-ID für den Cooldown: extrahiere den ?product=-Wert aus der
+        # Quicktask-URL — varianten-übergreifend (size/color teilen sich
+        # einen Cooldown, weil sie alle dieselbe product-URL enthalten).
+        # Wenn keine Quicktask-URL vorhanden ist oder der ?product=-Param
+        # fehlt, gibt extract_product_url "not found" zurück — in dem Fall
+        # gibt es keinen stabilen Produkt-Key und der Cooldown greift
+        # nicht (Notifications laufen normal durch).
+        product_id: str | None = None
+        if quicktask_url:
+            extracted = silently.extract_product_url(quicktask_url)
+            if extracted and extracted != "not found":
+                product_id = extracted
+
         # ── Match keywords against all users ──
         # {keyword_text: {channel_id: [{user_id, keyword_id}, ...]}}
         keyword_matches: dict[str, dict[str, list[dict]]] = {}
@@ -284,16 +297,22 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
             # autostart + autostart webhook paths, which are orthogonal to
             # the notification toggle.
 
+            # Product-Cooldown auf User-Level: ist dieses Produkt für diesen
+            # User noch im Cooldown-Fenster, überspringen wir ALLE Keyword-
+            # Matches dieses Embeds. Channel-übergreifend, varianten-
+            # übergreifend (size/color), gilt für DM, Pushover,
+            # Silently/Autostart und Webhook gleichermaßen.
+            # Ohne stabile Product-ID (kein Quicktask-URL oder kein
+            # ?product=-Param) greift kein Cooldown.
+            if product_id and cache.is_on_cooldown(user_id, product_id):
+                logger.info(f"[COOLDOWN] Skip {user_id} | Product matched in last window")
+                continue
+
             for kw in user_keywords:
                 if kw.keyword not in embed_text:
                     continue
 
                 cid_str = str(message.channel.id)
-
-                # Cooldown check
-                if cache.is_on_cooldown(user_id, cid_str, kw.id):
-                    logger.info(f"[COOLDOWN] Skip {user_id} | KW {kw.id} | Ch {cid_str}")
-                    continue
 
                 # Channel/category restriction check — OR over both scopes.
                 # A keyword with BOTH scopes empty is a "global" keyword and
@@ -329,6 +348,26 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                     _uname = cache.username_by_whop.get(user_id) or user_id[:12]
                     _cname = getattr(message.channel, "name", cid_str)
                     logger.info(f"[MATCH] {_uname} | '{kw.keyword}' | #{_cname}")
+
+                    # Product-Cooldown SOFORT setzen (vor jedem await), um Races
+                    # zwischen konkurrenten handle_message-Tasks zu schliessen.
+                    # discord.py dispatcht on_message als Tasks; ohne diesen
+                    # frühen Set sehen parallele Bursts denselben "noch nicht
+                    # gesetzt"-Zustand und feuern alle. Idempotent: bei mehreren
+                    # passenden Keywords desselben Users im selben Embed
+                    # setzt der erste Match den Cooldown, der Loop läuft aber
+                    # weiter (Notifications für alle gematchten Keywords gehen
+                    # raus, der Cooldown blockt erst die NÄCHSTEN Messages für
+                    # dasselbe Produkt). Setzt nur, wenn eine stabile Product-ID
+                    # extrahiert wurde — Embeds ohne ?product=-Param haben
+                    # keinen Key und keinen Cooldown.
+                    if product_id:
+                        _pinger = cache.pinger.get(user_id)
+                        if _pinger and _pinger.cooldown_minutes > 0:
+                            _expiry = current_time + timedelta(minutes=_pinger.cooldown_minutes)
+                            cache.set_cooldown(user_id, product_id, _expiry)
+                            asyncio.create_task(write_cooldown(user_id, product_id, _expiry))
+                            logger.info(f"[COOLDOWN SET] {user_id} | Product (cooldown {_pinger.cooldown_minutes}m)")
 
         if not keyword_matches:
             continue
@@ -473,14 +512,9 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                     elif not keyword_autostart_ok:
                         logger.info(f"[DISABLED KW] Skip {user_id} | '{keyword}'")
 
-                    # ── Cooldown (after DM/Pushover path) ──
-                    # Greift sobald *irgendeine* dieser beiden Notifications raus ist.
-                    # Silently + Webhook setzen ihren Cooldown separat nach dem Batch.
-                    if (dm_sent or pushover_sent) and pinger and pinger.cooldown_minutes > 0:
-                        expiry = current_time + timedelta(minutes=pinger.cooldown_minutes)
-                        cache.set_cooldown(user_id, channel_id_str, keyword_id, expiry)
-                        asyncio.create_task(write_cooldown(user_id, channel_id_str, keyword_id, expiry))
-                        logger.info(f"[COOLDOWN SET] {user_id} | KW {keyword_id} | Ch {channel_id_str}")
+                    # Cooldown wurde bereits beim Match-Time gesetzt (siehe oben),
+                    # bevor irgendein await das Event-Loop yieldet. Dadurch sind
+                    # konkurrente handle_message-Bursts korrekt geblockt.
 
                     # ── Write notification log (without silently result yet) ──
                     # Silently result will be logged after batch processing below
@@ -596,21 +630,6 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                             )
                         except Exception as e:
                             logger.error(f"[WEBHOOK] Failed for {uid}: {e}")
-
-                    # ── Cooldown (after Silently/Webhook path) ──
-                    # Idempotent mit dem DM/Pushover-Cooldown oben: active_cooldowns
-                    # hat UNIQUE (user, channel, keyword), cache.set_cooldown überschreibt.
-                    # Skip wenn DM oder Pushover für diesen Match schon gefeuert haben —
-                    # dann wurde der Cooldown bereits gesetzt (spart DB-Write + Log-Noise).
-                    _cd_already = entry.get("dm_sent") or entry.get("pushover_sent")
-                    _sl_or_wh_fired = success or wh_sent
-                    _pinger = cache.pinger.get(uid)
-                    if _sl_or_wh_fired and not _cd_already and _pinger and _pinger.cooldown_minutes > 0:
-                        _expiry = current_time + timedelta(minutes=_pinger.cooldown_minutes)
-                        _cid = str(message.channel.id)
-                        cache.set_cooldown(uid, _cid, entry["keyword_id"], _expiry)
-                        asyncio.create_task(write_cooldown(uid, _cid, entry["keyword_id"], _expiry))
-                        logger.info(f"[COOLDOWN SET] {uid} | KW {entry['keyword_id']} | via Silently/Webhook")
 
                     # Collect for the aggregated admin log webhook
                     admin_log_results.append({

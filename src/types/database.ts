@@ -16,37 +16,27 @@ export type Database = {
     Tables: {
       active_cooldowns: {
         Row: {
-          channel_id: string
           created_at: string
           expires_at: string
           id: string
-          keyword_id: string
+          product_id: string
           user_id: string
         }
         Insert: {
-          channel_id: string
           created_at?: string
           expires_at: string
           id?: string
-          keyword_id: string
+          product_id: string
           user_id: string
         }
         Update: {
-          channel_id?: string
           created_at?: string
           expires_at?: string
           id?: string
-          keyword_id?: string
+          product_id?: string
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "active_cooldowns_keyword_id_fkey"
-            columns: ["keyword_id"]
-            isOneToOne: false
-            referencedRelation: "keywords"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "active_cooldowns_user_id_fkey"
             columns: ["user_id"]
@@ -113,6 +103,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      bot_realtime_heartbeat: {
+        Row: {
+          id: number
+          last_seen: string
+        }
+        Insert: {
+          id: number
+          last_seen?: string
+        }
+        Update: {
+          id?: number
+          last_seen?: string
+        }
+        Relationships: []
       }
       keywords: {
         Row: {

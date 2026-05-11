@@ -22,16 +22,20 @@ from config import supabase, get_async_supabase, reset_async_supabase, SUPABASE_
 
 logger = logging.getLogger(__name__)
 
-# Bot-owned row in `app_settings` used as a Realtime liveness probe.
-# `heartbeat_writer` upserts this every HEARTBEAT_INTERVAL seconds via the sync
-# DB client; the resulting UPDATE echoes back on the Realtime WS and refreshes
-# `_last_rt_event_at`. If no events (of any kind) arrive for STALENESS_THRESHOLD
-# seconds, `staleness_watchdog` forces a full reconnect. Dashboard code never
-# reads/writes this key — _load_app_settings' if/elif silently drops unknowns.
-HEARTBEAT_KEY = "_bot_rt_heartbeat"
-HEARTBEAT_INTERVAL = 60          # seconds between self-upserts
+# Bot-owned row in dedicated table `bot_realtime_heartbeat` used as a
+# Realtime liveness probe. `heartbeat_writer` upserts row id=1 every
+# HEARTBEAT_INTERVAL seconds via the sync DB client; the resulting UPDATE
+# echoes back on the Realtime WS and refreshes `_last_rt_event_at`. If no
+# events (of any kind) arrive for STALENESS_THRESHOLD seconds,
+# `staleness_watchdog` forces a full reconnect. Lives in its own table so
+# UPSERT churn stays out of `app_settings` — the previous implementation
+# triggered ~1k+ HOT updates per day on a config table, inflating WAL
+# volume processed by Supabase Realtime.
+HEARTBEAT_TABLE = "bot_realtime_heartbeat"
+HEARTBEAT_ROW_ID = 1
+HEARTBEAT_INTERVAL = 120         # seconds between self-upserts
 STALENESS_CHECK_INTERVAL = 30    # seconds between staleness checks
-STALENESS_THRESHOLD = 180        # seconds without ANY RT event before reconnect
+STALENESS_THRESHOLD = 360        # seconds without ANY RT event before reconnect
 
 
 class _RealtimeCloseDetector(logging.Handler):
@@ -126,10 +130,10 @@ class BotCache:
         # {user_id: set(keyword_id)}
         self.pushover_disabled: dict[str, set[str]] = defaultdict(set)
         self._pushover_disabled_id_map: dict[str, tuple[str, str]] = {}
-        # {user_id: {channel_id: {keyword_id: expiry_datetime}}}
-        self.active_cooldowns: dict[str, dict[str, dict[str, datetime]]] = defaultdict(
-            lambda: defaultdict(dict)
-        )
+        # {user_id: {product_id: expiry_datetime}}
+        # product_id = volle Quicktask-URL aus dem Embed.
+        # Cooldown ist channel-übergreifend pro (user, product).
+        self.active_cooldowns: dict[str, dict[str, datetime]] = defaultdict(dict)
         # Global app settings
         self.app: AppSettings = AppSettings()
 
@@ -279,9 +283,8 @@ class BotCache:
             expiry = datetime.fromisoformat(row["expires_at"])
             if expiry > now:
                 uid = row["user_id"]
-                cid = row["channel_id"]
-                kid = row["keyword_id"]
-                target.active_cooldowns[uid][cid][kid] = expiry
+                pid = row["product_id"]
+                target.active_cooldowns[uid][pid] = expiry
 
     async def _load_app_settings(self, target):
         data = supabase.table("app_settings").select("key, value").execute().data or []
@@ -365,6 +368,7 @@ class BotCache:
             ("autostart_disabled_keywords", self._on_disabled_kw_change),
             ("pushover_disabled_keywords", self._on_pushover_disabled_change),
             ("app_settings", self._on_app_settings_change),
+            (HEARTBEAT_TABLE, self._on_heartbeat_change),
         ]
         for table, callback in tables:
             channel = async_sb.channel(f"cache_{table}")
@@ -440,7 +444,7 @@ class BotCache:
                 self._reconnect_needed.set()
 
     async def heartbeat_writer(self):
-        """Self-upsert a bot-owned row into app_settings at HEARTBEAT_INTERVAL.
+        """Self-upsert the bot-owned row into bot_realtime_heartbeat at HEARTBEAT_INTERVAL.
 
         The point is not the value — it's that each upsert triggers a
         postgres_changes UPDATE that echoes back through Realtime to the
@@ -454,8 +458,8 @@ class BotCache:
             try:
                 now_iso = datetime.now(pytz.UTC).isoformat()
                 await asyncio.to_thread(
-                    lambda: supabase.table("app_settings")
-                    .upsert({"key": HEARTBEAT_KEY, "value": now_iso})
+                    lambda: supabase.table(HEARTBEAT_TABLE)
+                    .upsert({"id": HEARTBEAT_ROW_ID, "last_seen": now_iso})
                     .execute()
                 )
             except Exception as e:
@@ -810,21 +814,23 @@ class BotCache:
         except Exception as e:
             logger.error(f"[RT] Error in _on_pushover_disabled_change: {e}")
 
+    def _on_heartbeat_change(self, payload):
+        """Bot-owned liveness probe echo. The whole point is _touch() —
+        proves end-to-end that Bot → DB → Supabase Realtime → WS → Bot
+        is alive right now. No state change to apply.
+        """
+        try:
+            self._touch()
+            logger.info("[Heartbeat] echo received (WS alive)")
+        except Exception as e:
+            logger.error(f"[RT] Error in _on_heartbeat_change: {e}")
+
     def _on_app_settings_change(self, payload):
         try:
             self._touch()
             etype, record, old = self._extract(payload)
             if record:
                 key, val = record.get("key", ""), record.get("value", "") or ""
-                # Bot-owned liveness probe: the echo is the whole point (it
-                # refreshes _last_rt_event_at via _touch above). One terse
-                # log per echo proves end-to-end that Bot → DB → Supabase
-                # Realtime → WS → Bot is alive right now. Skip the generic
-                # "App setting updated: ..." line below — that's misleading
-                # since there is no actual state change.
-                if key == HEARTBEAT_KEY:
-                    logger.info("[Heartbeat] echo received (WS alive)")
-                    return
                 if key == "silently_api_key":
                     self.app.silently_api_key = val
                 elif key == "pushover_app_key":
@@ -843,39 +849,31 @@ class BotCache:
 
     # ── Cooldown helpers ─────────────────────────────────────────────────
 
-    def is_on_cooldown(self, user_id: str, channel_id: str, keyword_id: str) -> bool:
-        expiry = self.active_cooldowns.get(user_id, {}).get(channel_id, {}).get(keyword_id)
+    def is_on_cooldown(self, user_id: str, product_id: str) -> bool:
+        expiry = self.active_cooldowns.get(user_id, {}).get(product_id)
         if expiry is None:
             return False
         if datetime.now(pytz.UTC) >= expiry:
             # Expired — clean up
-            del self.active_cooldowns[user_id][channel_id][keyword_id]
-            if not self.active_cooldowns[user_id][channel_id]:
-                del self.active_cooldowns[user_id][channel_id]
+            del self.active_cooldowns[user_id][product_id]
             if not self.active_cooldowns[user_id]:
                 del self.active_cooldowns[user_id]
             return False
         return True
 
-    def set_cooldown(self, user_id: str, channel_id: str, keyword_id: str, expiry: datetime):
-        self.active_cooldowns[user_id][channel_id][keyword_id] = expiry
+    def set_cooldown(self, user_id: str, product_id: str, expiry: datetime):
+        self.active_cooldowns[user_id][product_id] = expiry
 
     def cleanup_expired(self):
         now = datetime.now(pytz.UTC)
         empty_users = []
         for uid in list(self.active_cooldowns):
-            empty_channels = []
-            for cid in list(self.active_cooldowns[uid]):
-                expired = [
-                    kid for kid, exp in self.active_cooldowns[uid][cid].items()
-                    if now >= exp
-                ]
-                for kid in expired:
-                    del self.active_cooldowns[uid][cid][kid]
-                if not self.active_cooldowns[uid][cid]:
-                    empty_channels.append(cid)
-            for cid in empty_channels:
-                del self.active_cooldowns[uid][cid]
+            expired = [
+                pid for pid, exp in self.active_cooldowns[uid].items()
+                if now >= exp
+            ]
+            for pid in expired:
+                del self.active_cooldowns[uid][pid]
             if not self.active_cooldowns[uid]:
                 empty_users.append(uid)
         for uid in empty_users:
