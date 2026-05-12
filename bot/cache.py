@@ -38,6 +38,12 @@ STALENESS_CHECK_INTERVAL = 30    # seconds between staleness checks
 STALENESS_THRESHOLD = 360        # seconds without ANY RT event before reconnect
 
 
+def _parse_id_csv(val: str | None) -> list[int]:
+    if not val:
+        return []
+    return [int(x.strip()) for x in val.split(",") if x.strip().isdigit()]
+
+
 class _RealtimeCloseDetector(logging.Handler):
     """Listens on realtime-py's loggers for WebSocket failures and signals
     the watchdog via an asyncio.Event.
@@ -306,6 +312,8 @@ class BotCache:
                 app.webhook_user_payload_template = val or None
             elif key == "webhook_admin_payload_template":
                 app.webhook_admin_payload_template = val or None
+            elif key == "allowed_category_ids":
+                app.allowed_category_ids = _parse_id_csv(val)
         target.app = app
 
     # ── Supabase Realtime subscriptions ──────────────────────────────────
@@ -843,6 +851,8 @@ class BotCache:
                     self.app.webhook_user_payload_template = val or None
                 elif key == "webhook_admin_payload_template":
                     self.app.webhook_admin_payload_template = val or None
+                elif key == "allowed_category_ids":
+                    self.app.allowed_category_ids = _parse_id_csv(val)
                 logger.info(f"[RT] App setting updated: {key}")
         except Exception as e:
             logger.error(f"[RT] Error in _on_app_settings_change: {e}")

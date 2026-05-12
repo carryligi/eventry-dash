@@ -61,3 +61,8 @@ class AppSettings:
     # before being POSTed to Discord. None = use hardcoded default.
     webhook_user_payload_template: Optional[str] = None
     webhook_admin_payload_template: Optional[str] = None
+    # Discord category IDs the bot listens in. Mirrors `allowed_category_ids`
+    # in the dashboard admin panel and is the single source of truth for the
+    # category gate in handlers/message.py. Empty list = drop everything
+    # (fail-closed during bootstrap before _load_app_settings has populated it).
+    allowed_category_ids: list[int] = field(default_factory=list)
