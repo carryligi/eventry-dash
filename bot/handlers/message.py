@@ -13,7 +13,7 @@ import discord
 import pytz
 
 from cache import BotCache
-from config import GUILD_ID, TARGET_CATEGORIES, supabase, BOT_ROLE
+from config import GUILD_ID, supabase, BOT_ROLE
 from services import pushover, silently, webhooks
 from services.supabase_db import write_notification_log, write_cooldown
 
@@ -233,7 +233,7 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
     # ── Gate checks (same as original) ──
     if isinstance(message.channel, discord.DMChannel) or not message.webhook_id:
         return
-    if message.channel.category_id not in TARGET_CATEGORIES:
+    if message.channel.category_id not in cache.app.allowed_category_ids:
         return
     if not message.embeds:
         return
