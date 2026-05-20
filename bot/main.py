@@ -91,16 +91,18 @@ async def on_ready():
     # discord.py reconnects, so each task is only (re)spawned when the
     # previous one is absent or has already finished.
     # - watchdog: reacts to _reconnect_needed from any source
-    # - periodic_resync: every 60s re-reads per-user settings from DB so a
-    #   silently-dropped UPDATE doesn't leave priority/keys/webhooks stale
-    # - heartbeat_writer: self-upserts to app_settings so we can detect a
-    #   dead Realtime WS even when it doesn't log a close
+    # - periodic_resync: every 300s re-reads per-user settings from DB so a
+    #   silently-dropped UPDATE doesn't leave priority/keys/webhooks stale.
+    #   Pure safety net — Realtime is the primary channel and
+    #   staleness_watchdog (360s) is the real liveness guard.
+    # - heartbeat_writer: self-upserts to bot_realtime_heartbeat so we can
+    #   detect a dead Realtime WS even when it doesn't log a close
     # - staleness_watchdog: forces reconnect if no RT events arrive for too
     #   long — the proactive counterpart to the log-scraping detector
     if cache._watchdog_task is None or cache._watchdog_task.done():
         cache._watchdog_task = asyncio.create_task(cache.watchdog())
     if cache._resync_task is None or cache._resync_task.done():
-        cache._resync_task = asyncio.create_task(cache.periodic_resync(60))
+        cache._resync_task = asyncio.create_task(cache.periodic_resync(300))
     if cache._heartbeat_task is None or cache._heartbeat_task.done():
         cache._heartbeat_task = asyncio.create_task(cache.heartbeat_writer())
     if cache._staleness_task is None or cache._staleness_task.done():

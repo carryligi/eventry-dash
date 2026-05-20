@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # volume processed by Supabase Realtime.
 HEARTBEAT_TABLE = "bot_realtime_heartbeat"
 HEARTBEAT_ROW_ID = 1
-HEARTBEAT_INTERVAL = 120         # seconds between self-upserts
+HEARTBEAT_INTERVAL = 240         # seconds between self-upserts (margin to STALENESS_THRESHOLD=360 leaves room for one missed tick)
 STALENESS_CHECK_INTERVAL = 30    # seconds between staleness checks
 STALENESS_THRESHOLD = 360        # seconds without ANY RT event before reconnect
 
