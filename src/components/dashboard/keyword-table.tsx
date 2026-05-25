@@ -36,6 +36,7 @@ import {
 import { deleteKeywords } from '@/lib/actions/keywords'
 import { toggleKeywordAutostart } from '@/lib/actions/silently'
 import { toggleKeywordPushover } from '@/lib/actions/pushover'
+import { toggleKeywordDm } from '@/lib/actions/dm'
 import { useAction } from '@/hooks/use-action'
 import { KeywordDialog } from './keyword-dialog'
 import { useDiscordChannels } from './use-discord-channels'
@@ -123,9 +124,11 @@ interface KeywordTableProps {
   globalMinStock?: number
   pushoverDisabledKeywords: string[]
   pushoverGlobalEnabled: boolean
+  dmDisabledKeywords: string[]
+  pingerGlobalEnabled: boolean
 }
 
-export function KeywordTable({ keywords, disabledKeywords, globalMinStock, pushoverDisabledKeywords, pushoverGlobalEnabled }: KeywordTableProps) {
+export function KeywordTable({ keywords, disabledKeywords, globalMinStock, pushoverDisabledKeywords, pushoverGlobalEnabled, dmDisabledKeywords, pingerGlobalEnabled }: KeywordTableProps) {
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<SortField>('created_at')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -206,6 +209,29 @@ export function KeywordTable({ keywords, disabledKeywords, globalMinStock, pusho
     })
   }
 
+  const [isDmPending, startDmTransition] = useTransition()
+  const [optimisticDmDisabled, setOptimisticDmDisabled] = useOptimistic(
+    dmDisabledKeywords,
+    (current: string[], { keywordId, enabled }: { keywordId: string; enabled: boolean }) => {
+      if (enabled) {
+        return current.filter((k) => k !== keywordId)
+      }
+      return [...current, keywordId]
+    },
+  )
+
+  const { execute: executeDm } = useAction(
+    (input: { keywordId: string; enabled: boolean }) =>
+      toggleKeywordDm(input.keywordId, input.enabled),
+  )
+
+  const handleDmToggle = (keywordId: string, enabled: boolean) => {
+    startDmTransition(() => {
+      setOptimisticDmDisabled({ keywordId, enabled })
+      executeDm({ keywordId, enabled })
+    })
+  }
+
   const disabledSet = useMemo(
     () => new Set(optimisticDisabled.map((k) => k.toLowerCase())),
     [optimisticDisabled],
@@ -214,6 +240,11 @@ export function KeywordTable({ keywords, disabledKeywords, globalMinStock, pusho
   const pushoverDisabledSet = useMemo(
     () => new Set(optimisticPushoverDisabled),
     [optimisticPushoverDisabled],
+  )
+
+  const dmDisabledSet = useMemo(
+    () => new Set(optimisticDmDisabled),
+    [optimisticDmDisabled],
   )
 
   const filtered = useMemo(() => {
@@ -371,6 +402,9 @@ export function KeywordTable({ keywords, disabledKeywords, globalMinStock, pusho
                 <span className="text-ev-text-secondary">Pushover</span>
               </TableHead>
               <TableHead>
+                <span className="text-ev-text-secondary">DM</span>
+              </TableHead>
+              <TableHead>
                 <button
                   onClick={() => toggleSort('created_at')}
                   className="flex items-center gap-1 text-ev-text-secondary transition-colors"
@@ -388,7 +422,7 @@ export function KeywordTable({ keywords, disabledKeywords, globalMinStock, pusho
             {filtered.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell
-                  colSpan={9}
+                  colSpan={10}
                   className="h-24 text-center text-ev-text-tertiary"
                 >
                   {search
@@ -521,6 +555,32 @@ export function KeywordTable({ keywords, disabledKeywords, globalMinStock, pusho
                               disabled={isPushoverPending || !pushoverGlobalEnabled}
                               size="sm"
                               aria-label={`Pushover for ${kw.keyword}`}
+                            />
+                          </div>
+                        )
+                      })()}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const isDmOff = dmDisabledSet.has(kw.id)
+                        return (
+                          <div
+                            className="flex items-center gap-2"
+                            title={!pingerGlobalEnabled ? 'Pinger global deaktiviert' : undefined}
+                          >
+                            <span
+                              className={`inline-block size-1.5 rounded-full flex-shrink-0 ${
+                                !pingerGlobalEnabled || isDmOff ? 'bg-ev-text-tertiary' : 'bg-ev-success'
+                              }`}
+                            />
+                            <Switch
+                              checked={pingerGlobalEnabled && !isDmOff}
+                              onCheckedChange={(checked) =>
+                                handleDmToggle(kw.id, checked)
+                              }
+                              disabled={isDmPending || !pingerGlobalEnabled}
+                              size="sm"
+                              aria-label={`DM for ${kw.keyword}`}
                             />
                           </div>
                         )

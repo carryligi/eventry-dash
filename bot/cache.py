@@ -136,6 +136,10 @@ class BotCache:
         # {user_id: set(keyword_id)}
         self.pushover_disabled: dict[str, set[str]] = defaultdict(set)
         self._pushover_disabled_id_map: dict[str, tuple[str, str]] = {}
+        # Per-keyword Discord-DM disabled — keyed by keyword_id (UUID).
+        # {user_id: set(keyword_id)}
+        self.dm_disabled: dict[str, set[str]] = defaultdict(set)
+        self._dm_disabled_id_map: dict[str, tuple[str, str]] = {}
         # {user_id: {product_id: expiry_datetime}}
         # product_id = volle Quicktask-URL aus dem Embed.
         # Cooldown ist channel-übergreifend pro (user, product).
@@ -194,6 +198,7 @@ class BotCache:
             self._load_webhooks(dst),
             self._load_disabled_keywords(dst),
             self._load_pushover_disabled(dst),
+            self._load_dm_disabled(dst),
             self._load_app_settings(dst),
         ]
         if target is None:
@@ -280,6 +285,18 @@ class BotCache:
             target.pushover_disabled[uid].add(kid)
             if rid:
                 target._pushover_disabled_id_map[str(rid)] = (uid, kid)
+
+    async def _load_dm_disabled(self, target):
+        data = supabase.table("dm_disabled_keywords").select("*").execute().data or []
+        target.dm_disabled.clear()
+        target._dm_disabled_id_map.clear()
+        for row in data:
+            uid = row["user_id"]
+            kid = row["keyword_id"]
+            rid = row.get("id")
+            target.dm_disabled[uid].add(kid)
+            if rid:
+                target._dm_disabled_id_map[str(rid)] = (uid, kid)
 
     async def _load_cooldowns(self, target):
         data = supabase.table("active_cooldowns").select("*").execute().data or []
@@ -375,6 +392,7 @@ class BotCache:
             ("webhook_settings", self._on_webhooks_change),
             ("autostart_disabled_keywords", self._on_disabled_kw_change),
             ("pushover_disabled_keywords", self._on_pushover_disabled_change),
+            ("dm_disabled_keywords", self._on_dm_disabled_change),
             ("app_settings", self._on_app_settings_change),
             (HEARTBEAT_TABLE, self._on_heartbeat_change),
         ]
@@ -821,6 +839,38 @@ class BotCache:
                     logger.info(f"[RT] Pushover disabled keyword added: {kid} for {uid}")
         except Exception as e:
             logger.error(f"[RT] Error in _on_pushover_disabled_change: {e}")
+
+    def _on_dm_disabled_change(self, payload):
+        try:
+            self._touch()
+            etype, record, old = self._extract(payload)
+            if etype == "DELETE":
+                old_id = str(old.get("id", "")) if old else ""
+                if not old_id:
+                    logger.warning("[RT] DM disabled keyword DELETE without id in payload — cannot resolve")
+                    return
+                mapped = self._dm_disabled_id_map.pop(old_id, None)
+                if mapped is None:
+                    logger.warning(
+                        f"[RT] DM disabled keyword DELETE id={old_id} not found in reverse map — "
+                        f"cache may be stale, triggering reload"
+                    )
+                    asyncio.create_task(self._load_dm_disabled(self))
+                    return
+                uid, kid = mapped
+                self.dm_disabled[uid].discard(kid)
+                logger.info(f"[RT] DM disabled keyword removed: {kid} for {uid}")
+            elif record:
+                uid = record.get("user_id", "")
+                kid = record.get("keyword_id", "")
+                rid = record.get("id")
+                if uid and kid:
+                    self.dm_disabled[uid].add(kid)
+                    if rid:
+                        self._dm_disabled_id_map[str(rid)] = (uid, kid)
+                    logger.info(f"[RT] DM disabled keyword added: {kid} for {uid}")
+        except Exception as e:
+            logger.error(f"[RT] Error in _on_dm_disabled_change: {e}")
 
     def _on_heartbeat_change(self, payload):
         """Bot-owned liveness probe echo. The whole point is _touch() —

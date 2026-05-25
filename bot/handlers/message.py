@@ -399,8 +399,9 @@ async def handle_message(bot: discord.Client, cache: BotCache, message: discord.
                     pinger = cache.pinger.get(user_id)
                     pinger_on = bool(pinger and pinger.is_active)
 
-                    # ── DM notification (pinger-gated) ──
-                    if pinger_on:
+                    # ── DM notification (pinger-gated, per-keyword opt-out) ──
+                    dm_disabled = cache.dm_disabled.get(user_id, set())
+                    if pinger_on and keyword_id not in dm_disabled:
                         dm_embed = discord.Embed(
                             title="Keyword Match Found",
                             color=0xADADAD,

@@ -8,7 +8,15 @@ export default async function KeywordsPage() {
   const userId = await getUserId()
   const supabase = await createServerClient()
 
-  const [{ data: keywords }, { data: disabledKws }, { data: silently }, { data: pushoverDisabledKws }, { data: pushoverSettings }] = await Promise.all([
+  const [
+    { data: keywords },
+    { data: disabledKws },
+    { data: silently },
+    { data: pushoverDisabledKws },
+    { data: pushoverSettings },
+    { data: dmDisabledKws },
+    { data: pingerSettings },
+  ] = await Promise.all([
     supabase
       .from('keywords')
       .select('*')
@@ -32,6 +40,15 @@ export default async function KeywordsPage() {
       .select('user_key')
       .eq('user_id', userId)
       .maybeSingle(),
+    supabase
+      .from('dm_disabled_keywords')
+      .select('keyword_id')
+      .eq('user_id', userId),
+    supabase
+      .from('pinger_settings')
+      .select('is_active')
+      .eq('user_id', userId)
+      .maybeSingle(),
   ])
 
   const disabledKeywordsList = (disabledKws ?? []).map(
@@ -40,7 +57,11 @@ export default async function KeywordsPage() {
   const pushoverDisabledList = (pushoverDisabledKws ?? []).map(
     (d: { keyword_id: string }) => d.keyword_id
   )
+  const dmDisabledList = (dmDisabledKws ?? []).map(
+    (d: { keyword_id: string }) => d.keyword_id
+  )
   const pushoverGlobalEnabled = !!pushoverSettings?.user_key
+  const pingerGlobalEnabled = !!pingerSettings?.is_active
   const globalMinStock = silently?.min_stock ?? 0
 
   return (
@@ -60,6 +81,8 @@ export default async function KeywordsPage() {
           globalMinStock={globalMinStock}
           pushoverDisabledKeywords={pushoverDisabledList}
           pushoverGlobalEnabled={pushoverGlobalEnabled}
+          dmDisabledKeywords={dmDisabledList}
+          pingerGlobalEnabled={pingerGlobalEnabled}
         />
       </div>
     </>
