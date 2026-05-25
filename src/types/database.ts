@@ -119,6 +119,42 @@ export type Database = {
         }
         Relationships: []
       }
+      dm_disabled_keywords: {
+        Row: {
+          created_at: string
+          id: string
+          keyword_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          keyword_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          keyword_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dm_disabled_keywords_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "keywords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dm_disabled_keywords_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       keywords: {
         Row: {
           category_ids: string[] | null
