@@ -570,6 +570,8 @@ class BotCache:
         tmp._disabled_id_map = {}
         tmp.pushover_disabled = defaultdict(set)
         tmp._pushover_disabled_id_map = {}
+        tmp.dm_disabled = defaultdict(set)
+        tmp._dm_disabled_id_map = {}
         tmp.app = AppSettings()
         # Active cooldowns are owned by this process, not the DB — we keep
         # the live reference and just rebind it on tmp for loader safety.
@@ -594,6 +596,8 @@ class BotCache:
             self._disabled_id_map = tmp._disabled_id_map
             self.pushover_disabled = tmp.pushover_disabled
             self._pushover_disabled_id_map = tmp._pushover_disabled_id_map
+            self.dm_disabled = tmp.dm_disabled
+            self._dm_disabled_id_map = tmp._dm_disabled_id_map
             self.app = tmp.app
         logger.info("[Watchdog] Cache atomically swapped to fresh state")
 
